@@ -129,7 +129,7 @@ namespace tsid
        * is the size of the active set.
        * @return The set of indexes of the active constraints.
        */
-      const VectorXi & getActiveSet() const { return A; }
+      const VectorXi & getActiveSet() const {return A;}
 
       /**
        * solves the problem

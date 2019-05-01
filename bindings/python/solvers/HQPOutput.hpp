@@ -18,7 +18,7 @@
 #ifndef __tsid_python_HQPOutput_hpp__
 #define __tsid_python_HQPOutput_hpp__
 
-#include <boost/python.hpp>
+#include <boost/python.hpp>`
 #include <string>
 #include <eigenpy/eigenpy.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
@@ -44,10 +44,14 @@ namespace tsid
         .def(bp::init<int, int, int>((bp::args("nVars", "nEq", "nInCon"))))
         .add_property("x", &HQPOutputPythonVisitor::x)
         .add_property("status", &HQPOutputPythonVisitor::status)
+        .add_property("activeSetNormal", &HQPOutputPythonVisitor::activeSetNormal)
+        .add_property("activeSetBias", &HQPOutputPythonVisitor::activeSetBias)
         ;
       }
-      static Eigen::VectorXd x (const T & self) {return self.x;}
       static int status (const T & self) {return self.status;}
+      static Eigen::VectorXd x (const T & self) {return self.x;}
+      static Eigen::MatrixXd activeSetNormal (const T & self) {return self.m_CA;}
+      static Eigen::VectorXd activeSetBias (const T & self) {return self.m_ca0;}
       static void expose(const std::string & class_name)
       {
         std::string doc = "HQPOutput info.";

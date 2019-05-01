@@ -198,7 +198,18 @@ namespace tsid
         m_output.lambda = m_solver.getLagrangeMultipliers();
         m_output.iterations = m_solver.getIteratios();
         //    m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(m_solver.getActiveSetSize()-m_neq);
-        m_output.activeSet = m_solver.getActiveSet().segment(m_neq, m_solver.getActiveSetSize()-m_neq);
+        long unsigned int q = m_solver.getActiveSetSize(); 
+        m_output.activeSet = m_solver.getActiveSet().segment(m_neq, q-m_neq);
+        m_output.m_CA.resize(m_neq + q, m_n);
+        m_output.m_CA.topRows(m_neq) = m_CE;
+        m_output.m_ca0.resize(m_neq + q);
+        m_output.m_ca0.head(m_neq) = m_ce0;
+        for (unsigned int i=m_neq; i < q; i++){
+          m_output.m_CA.middleRows(i, 1) = m_CI.middleRows(m_output.activeSet(i - m_neq), 1);
+          m_output.m_ca0(i) = m_ci0(m_output.activeSet(i - m_neq));
+        }
+        
+
 #ifndef NDEBUG
         const Vector & x = m_output.x;
         

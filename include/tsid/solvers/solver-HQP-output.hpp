@@ -35,12 +35,15 @@ namespace tsid
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
       
       typedef math::Vector Vector;
+      typedef math::Matrix Matrix;
       typedef math::VectorXi VectorXi;
       
       HQPStatus status;    /// solver status
       Vector x;            /// solution
       Vector lambda;       /// Lagrange multipliers
       VectorXi activeSet;  /// indexes of active inequalities
+      Matrix m_CA;         /// active constraint normal
+      Vector m_ca0;        /// active constraint bias
       int iterations;      /// number of iterations performed by the solver
       
       HQPOutput(){}
