@@ -46,6 +46,7 @@ namespace tsid
       /** Solve the given Hierarchical Quadratic Program
        */
       const HQPOutput & solve(const HQPData & problemData);
+      const HQPOutput & solve(const HQPData & problemData, const Vector & activeSet);
 
       /** Get the objective value of the last solved problem. */
       double getObjectiveValue();

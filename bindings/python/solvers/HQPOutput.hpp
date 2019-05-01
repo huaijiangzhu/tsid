@@ -44,14 +44,20 @@ namespace tsid
         .def(bp::init<int, int, int>((bp::args("nVars", "nEq", "nInCon"))))
         .add_property("x", &HQPOutputPythonVisitor::x)
         .add_property("status", &HQPOutputPythonVisitor::status)
-        .add_property("activeSetNormal", &HQPOutputPythonVisitor::activeSetNormal)
-        .add_property("activeSetBias", &HQPOutputPythonVisitor::activeSetBias)
+        .add_property("activeSet", &HQPOutputPythonVisitor::activeSet)
+        .add_property("A", &HQPOutputPythonVisitor::A)
+        .add_property("b", &HQPOutputPythonVisitor::b)
+        .add_property("H", &HQPOutputPythonVisitor::H)
+        .add_property("g", &HQPOutputPythonVisitor::g)
         ;
       }
       static int status (const T & self) {return self.status;}
       static Eigen::VectorXd x (const T & self) {return self.x;}
-      static Eigen::MatrixXd activeSetNormal (const T & self) {return self.m_CA;}
-      static Eigen::VectorXd activeSetBias (const T & self) {return self.m_ca0;}
+      static Eigen::VectorXd activeSet (const T & self) {return self.activeSetPy;}
+      static Eigen::MatrixXd A (const T & self) {return self.m_A;}
+      static Eigen::MatrixXd H (const T & self) {return self.m_H;}
+      static Eigen::VectorXd b (const T & self) {return self.m_b;}
+      static Eigen::VectorXd g (const T & self) {return self.m_g;}
       static void expose(const std::string & class_name)
       {
         std::string doc = "HQPOutput info.";

@@ -42,8 +42,11 @@ namespace tsid
       Vector x;            /// solution
       Vector lambda;       /// Lagrange multipliers
       VectorXi activeSet;  /// indexes of active inequalities
-      Matrix m_CA;         /// active constraint normal
-      Vector m_ca0;        /// active constraint bias
+      Vector activeSetPy;  /// indexes of active inequalities (dtype double)
+      Matrix m_A;         /// active constraint normal
+      Vector m_b;        /// active constraint bias
+      Matrix m_H;
+      Vector m_g;
       int iterations;      /// number of iterations performed by the solver
       
       HQPOutput(){}
