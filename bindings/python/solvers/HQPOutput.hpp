@@ -49,6 +49,8 @@ namespace tsid
         .add_property("b", &HQPOutputPythonVisitor::b)
         .add_property("H", &HQPOutputPythonVisitor::H)
         .add_property("g", &HQPOutputPythonVisitor::g)
+        .add_property("K", &HQPOutputPythonVisitor::K)
+        .add_property("Kinv", &HQPOutputPythonVisitor::Kinv)
         ;
       }
       static int status (const T & self) {return self.status;}
@@ -56,6 +58,8 @@ namespace tsid
       static Eigen::VectorXd activeSet (const T & self) {return self.activeSetPy;}
       static Eigen::MatrixXd A (const T & self) {return self.m_A;}
       static Eigen::MatrixXd H (const T & self) {return self.m_H;}
+      static Eigen::MatrixXd K (const T & self) {return self.m_K;}
+      static Eigen::MatrixXd Kinv (const T & self) {return self.m_Kinv;}
       static Eigen::VectorXd b (const T & self) {return self.m_b;}
       static Eigen::VectorXd g (const T & self) {return self.m_g;}
       static void expose(const std::string & class_name)

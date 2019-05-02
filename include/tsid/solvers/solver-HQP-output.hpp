@@ -47,6 +47,8 @@ namespace tsid
       Vector m_b;        /// active constraint bias
       Matrix m_H;
       Vector m_g;
+      Matrix m_K;
+      Matrix m_Kinv;
       int iterations;      /// number of iterations performed by the solver
       
       HQPOutput(){}

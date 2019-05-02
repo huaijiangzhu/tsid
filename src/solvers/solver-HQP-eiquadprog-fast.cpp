@@ -200,25 +200,32 @@ namespace tsid
         //    m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(m_solver.getActiveSetSize()-m_neq);
         long unsigned int q = m_solver.getActiveSetSize(); 
         m_output.activeSet = m_solver.getActiveSet().segment(m_neq, q - m_neq);
-        m_output.activeSetPy.resize(q - m_neq);
-     
-        for (unsigned int i = 0; i < q - m_neq; i++){
-          m_output.activeSetPy(i) = m_output.activeSet(i);
-        }
 
+        m_output.activeSetPy.resize(q - m_neq);
         m_output.m_H.resize(m_n, m_n);
         m_output.m_g.resize(m_n);
         m_output.m_A.resize(q, m_n);
         m_output.m_b.resize(q);
+        m_output.m_K.resize(m_n + q, m_n + q);
+        m_output.m_Kinv.resize(m_n + q, m_n + q);
 
         m_output.m_A.topRows(m_neq) = m_CE;
         m_output.m_H.topRows(m_n) = m_H;
         m_output.m_b.head(m_neq) = m_ce0;
         m_output.m_g.head(m_n) = m_g;
+
         for (unsigned int i=m_neq; i < q; i++){
+          m_output.activeSetPy(i - m_neq) = m_output.activeSet(i - m_neq);
           m_output.m_A.middleRows(i, 1) = m_CI.middleRows(m_output.activeSet(i - m_neq), 1);
           m_output.m_b(i) = m_ci0(m_output.activeSet(i - m_neq));
         }
+
+        m_output.m_K.block(0, 0, m_n, m_n) = m_output.m_H;
+        m_output.m_K.block(m_n, 0, q, m_n) = -m_output.m_A;
+        m_output.m_K.block(0, m_n, m_n, q) = -m_output.m_A.transpose();
+        m_output.m_K.block(m_n, m_n, q, q).setZero();
+
+        m_output.m_Kinv = m_output.m_K.inverse();
         
 
 #ifndef NDEBUG
@@ -264,7 +271,8 @@ namespace tsid
       return m_output;
     }
 
-    const HQPOutput & SolverHQuadProgFast::solve(const HQPData & problemData, const Vector &activeSet)
+    const HQPOutput & SolverHQuadProgFast::solve_local(const HQPData & problemData, 
+                                                       const HQPOutput & previousOutput)
     {
       
 //#ifndef EIGEN_RUNTIME_NO_MALLOC
@@ -362,38 +370,43 @@ namespace tsid
       //  CE x + ce0 = 0
       //  CI x + ci0 >= 0
       EIGEN_MALLOC_ALLOWED
-      EiquadprogFast_status status = m_solver.solve_quadprog(m_H, m_g,
-                                                             m_CE, m_ce0,
-                                                             m_CI, m_ci0,
-                                                             m_output.x);
+
     
       STOP_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_SOLUTION);
-      
-      
-      if(status == EIQUADPROG_FAST_OPTIMAL)
-      {
-        m_output.status = HQP_STATUS_OPTIMAL;
-        m_output.lambda = m_solver.getLagrangeMultipliers();
-        m_output.iterations = m_solver.getIteratios();
-        //    m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(m_solver.getActiveSetSize()-m_neq);
-        long unsigned int q = m_solver.getActiveSetSize(); 
-        m_output.activeSet = m_solver.getActiveSet().segment(m_neq, q - m_neq);
-        m_output.activeSetPy.resize(q - m_neq);
-     
-        for (unsigned int i = 0; i < q - m_neq; i++){
-          m_output.activeSetPy(i) = m_output.activeSet(i);
-        }
-        // m_output.m_CA.resize(m_neq + q, m_n);
-        // m_output.m_CA.topRows(m_neq) = m_CE;
-        // m_output.m_ca0.resize(m_neq + q);
-        // m_output.m_ca0.head(m_neq) = m_ce0;
-        // for (unsigned int i=m_neq; i < q; i++){
-        //   m_output.m_CA.middleRows(i, 1) = m_CI.middleRows(m_output.activeSet(i - m_neq), 1);
-        //   m_output.m_ca0(i) = m_ci0(m_output.activeSet(i - m_neq));
-        // }
-        
 
+      m_output.status = HQP_STATUS_OPTIMAL;
+      // m_output.lambda = m_solver.getLagrangeMultipliers();
+      // m_output.iterations = m_solver.getIteratios();
+      // //    m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(m_solver.getActiveSetSize()-m_neq);
+      // long unsigned int q = m_solver.getActiveSetSize(); 
+      // m_output.activeSet = m_solver.getActiveSet().segment(m_neq, q - m_neq);
+      long unsigned int q = previousOutput.activeSet.rows() + m_neq;
+      m_output.activeSet.resize(q - m_neq);
+      m_output.activeSetPy.resize(q - m_neq);
+      m_output.x.resize(m_n);
+      m_output.m_A.resize(q, m_n);
+      m_output.m_b.resize(q);
+      m_output.m_K.resize(m_n + q, m_n + q);
+      m_output.m_Kinv.resize(m_n + q, m_n + q);
+
+      m_output.activeSet = previousOutput.activeSet;
+      m_output.activeSetPy = previousOutput.activeSetPy;
+      m_output.m_Kinv = previousOutput.m_Kinv;
+      m_output.m_A.topRows(m_neq) = m_CE;
+      m_output.m_b.head(m_neq) = m_ce0;
+
+      for (unsigned int i=m_neq; i < q; i++){
+        m_output.m_A.middleRows(i, 1) = m_CI.middleRows(m_output.activeSet(i - m_neq), 1);
+        m_output.m_b(i) = m_ci0(m_output.activeSet(i - m_neq));
       }
+
+      math::Vector gb;
+      gb.resize(m_n + q);
+      gb.head(m_n) = -m_g;
+      gb.segment(m_n, q) = m_output.m_b;
+      math::Vector sol = previousOutput.m_Kinv*gb;
+      m_output.x = sol.segment(0, m_n);
+      m_output.lambda = sol.segment(m_n, m_n + q);
       return m_output;
     }
 

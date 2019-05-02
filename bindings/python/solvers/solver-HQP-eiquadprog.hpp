@@ -49,8 +49,9 @@ namespace tsid
         .def("resize", &SolverHQuadProgPythonVisitor::resize, bp::args("n", "neq", "nin"))
         .add_property("ObjVal", &Solver::getObjectiveValue, "return obj value")
         .def("solve", &SolverHQuadProgPythonVisitor::solve, bp::args("HQPData"))
+        .def("solve_local", &SolverHQuadProgPythonVisitor::solve_local, bp::args("HQPData","previousOutput"))
         .def("solve", &SolverHQuadProgPythonVisitor::solver_helper, bp::args("HQPData for Python"))
-
+        .def("solve_local", &SolverHQuadProgPythonVisitor::solve_local_helper, bp::args("HQPData for Python","previousOutput"))
         ;
       }
        
@@ -62,10 +63,22 @@ namespace tsid
           output = self.solve(problemData);
           return output;
       }
+      static solvers::HQPOutput solve_local(Solver & self, const solvers::HQPData & problemData,
+                                      const solvers::HQPOutput & previousOutput){
+          solvers::HQPOutput output;
+          output = self.solve_local(problemData, previousOutput);
+          return output;
+      }
+      static solvers::HQPOutput solve_local_helper(Solver & self, HQPDatas & HQPDatas,
+                                      const solvers::HQPOutput & previousOutput){
+          solvers::HQPOutput output;
+          solvers::HQPData data = HQPDatas.get();
+          output = self.solve_local(data, previousOutput);
+          return output;
+      }
       static solvers::HQPOutput solver_helper(Solver & self, HQPDatas & HQPDatas){
           solvers::HQPOutput output;
           solvers::HQPData data = HQPDatas.get();
-
           output = self.solve(data);
          
           return output;
