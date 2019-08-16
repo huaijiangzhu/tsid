@@ -407,6 +407,69 @@ namespace tsid
       math::Vector sol = previousOutput.m_Kinv*gb;
       m_output.x = sol.segment(0, m_n);
       m_output.lambda = sol.segment(m_n, m_n + q);
+
+
+      // check if constraints are satisfied and store the margin
+      const Vector & x = m_output.x;
+      m_output.m_delta.resize(cl0.size());
+
+      unsigned int i=0;
+      if(cl0.size()>0)
+      {
+        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
+        {
+          const ConstraintBase* constr = it->second;
+
+          if(constr->isEquality())
+          {
+            sendMsg("Equality "+constr->name()+" norm: "+
+                    toString((constr->matrix()*x-constr->vector()).norm()));
+            m_output.m_delta(i) = (constr->matrix()*x-constr->vector()).norm();
+          }
+
+          else if(constr->isInequality())
+          {
+            sendMsg("Inequality "+constr->name()+" smallest margin: "+
+                    toString((constr->matrix()*x-constr->lowerBound()).minCoeff())+", "+
+                    toString((constr->upperBound()-constr->matrix()*x).minCoeff()));
+
+
+            // is there a simple eigen function to do this????
+            if (
+              (constr->matrix()*x-constr->lowerBound()).minCoeff()
+            < (constr->upperBound()-constr->matrix()*x).minCoeff()
+            )
+            {
+              m_output.m_delta(i) = (constr->matrix()*x-constr->lowerBound()).minCoeff();
+            }
+            else
+            {
+              m_output.m_delta(i) = (constr->upperBound()-constr->matrix()*x).minCoeff();
+            }
+          }
+
+          else if(constr->isBound())
+          {
+            sendMsg("Bound "+constr->name()+" smallest margin: "+
+                    toString((x-constr->lowerBound()).minCoeff())+", "+
+                    toString((constr->upperBound()-x).minCoeff()));
+
+            // is there a simple eigen function to do this????
+            if (
+              (x-constr->lowerBound()).minCoeff()
+            < (constr->upperBound()-x).minCoeff()
+            )
+            {
+              m_output.m_delta(i) = (x-constr->lowerBound()).minCoeff();
+            }
+            else
+            {
+              m_output.m_delta(i) = (constr->upperBound()-x).minCoeff();
+            }
+          }
+          i++;
+        }
+      }
       return m_output;
     }
 
