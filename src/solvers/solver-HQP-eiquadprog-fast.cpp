@@ -226,6 +226,8 @@ namespace tsid
         m_output.m_K.block(m_n, m_n, q, q).setZero();
 
         m_output.m_Kinv = m_output.m_K.inverse();
+
+        compute_slack(problemData, m_output);
         
 
 #ifndef NDEBUG
@@ -269,6 +271,63 @@ namespace tsid
         m_output.status = HQP_STATUS_ERROR;
       
       return m_output;
+    }
+
+
+    void SolverHQuadProgFast::compute_slack(const HQPData & problemData, 
+                                            HQPOutput & problemOutput)
+    {
+      // check if constraints are satisfied and store the margin
+      const ConstraintLevel & cl0 = problemData[0];
+      const Vector & x = problemOutput.x;
+      problemOutput.m_delta.resize(cl0.size());
+
+      unsigned int i=0;
+      if(cl0.size()>0)
+      {
+        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
+        {
+          const ConstraintBase* constr = it->second;
+
+          if(constr->isEquality())
+          {
+            problemOutput.m_delta(i) = (constr->matrix()*x-constr->vector()).norm();
+          }
+
+          else if(constr->isInequality())
+          {
+            // is there a simple eigen function to do this????
+            if (
+              (constr->matrix()*x-constr->lowerBound()).minCoeff()
+            < (constr->upperBound()-constr->matrix()*x).minCoeff()
+            )
+            {
+              problemOutput.m_delta(i) = (constr->matrix()*x-constr->lowerBound()).minCoeff();
+            }
+            else
+            {
+              problemOutput.m_delta(i) = (constr->upperBound()-constr->matrix()*x).minCoeff();
+            }
+          }
+
+          else if(constr->isBound())
+          {
+            // is there a simple eigen function to do this????
+            if (
+              (x-constr->lowerBound()).minCoeff()
+            < (constr->upperBound()-x).minCoeff()
+            )
+            {
+              problemOutput.m_delta(i) = (x-constr->lowerBound()).minCoeff();
+            }
+            else
+            {
+              problemOutput.m_delta(i) = (constr->upperBound()-x).minCoeff();
+            }
+          }
+          i++;
+        }
+      }
     }
 
     const HQPOutput & SolverHQuadProgFast::solve_local(const HQPData & problemData, 
@@ -407,69 +466,7 @@ namespace tsid
       math::Vector sol = previousOutput.m_Kinv*gb;
       m_output.x = sol.segment(0, m_n);
       m_output.lambda = sol.segment(m_n, m_n + q);
-
-
-      // check if constraints are satisfied and store the margin
-      const Vector & x = m_output.x;
-      m_output.m_delta.resize(cl0.size());
-
-      unsigned int i=0;
-      if(cl0.size()>0)
-      {
-        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
-        {
-          const ConstraintBase* constr = it->second;
-
-          if(constr->isEquality())
-          {
-            sendMsg("Equality "+constr->name()+" norm: "+
-                    toString((constr->matrix()*x-constr->vector()).norm()));
-            m_output.m_delta(i) = (constr->matrix()*x-constr->vector()).norm();
-          }
-
-          else if(constr->isInequality())
-          {
-            sendMsg("Inequality "+constr->name()+" smallest margin: "+
-                    toString((constr->matrix()*x-constr->lowerBound()).minCoeff())+", "+
-                    toString((constr->upperBound()-constr->matrix()*x).minCoeff()));
-
-
-            // is there a simple eigen function to do this????
-            if (
-              (constr->matrix()*x-constr->lowerBound()).minCoeff()
-            < (constr->upperBound()-constr->matrix()*x).minCoeff()
-            )
-            {
-              m_output.m_delta(i) = (constr->matrix()*x-constr->lowerBound()).minCoeff();
-            }
-            else
-            {
-              m_output.m_delta(i) = (constr->upperBound()-constr->matrix()*x).minCoeff();
-            }
-          }
-
-          else if(constr->isBound())
-          {
-            sendMsg("Bound "+constr->name()+" smallest margin: "+
-                    toString((x-constr->lowerBound()).minCoeff())+", "+
-                    toString((constr->upperBound()-x).minCoeff()));
-
-            // is there a simple eigen function to do this????
-            if (
-              (x-constr->lowerBound()).minCoeff()
-            < (constr->upperBound()-x).minCoeff()
-            )
-            {
-              m_output.m_delta(i) = (x-constr->lowerBound()).minCoeff();
-            }
-            else
-            {
-              m_output.m_delta(i) = (constr->upperBound()-x).minCoeff();
-            }
-          }
-          i++;
-        }
-      }
+      compute_slack(problemData, m_output);
       return m_output;
     }
 

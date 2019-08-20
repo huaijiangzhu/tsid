@@ -51,6 +51,7 @@ namespace tsid
         .add_property("g", &HQPOutputPythonVisitor::g)
         .add_property("K", &HQPOutputPythonVisitor::K)
         .add_property("Kinv", &HQPOutputPythonVisitor::Kinv)
+        .add_property("delta", &HQPOutputPythonVisitor::delta)
         ;
       }
       static int status (const T & self) {return self.status;}
@@ -62,6 +63,7 @@ namespace tsid
       static Eigen::MatrixXd Kinv (const T & self) {return self.m_Kinv;}
       static Eigen::VectorXd b (const T & self) {return self.m_b;}
       static Eigen::VectorXd g (const T & self) {return self.m_g;}
+      static Eigen::VectorXd delta (const T & self) {return self.m_delta;}
       static void expose(const std::string & class_name)
       {
         std::string doc = "HQPOutput info.";

@@ -42,12 +42,15 @@ namespace tsid
       SolverHQuadProgFast(const std::string & name);
 
       void resize(unsigned int n, unsigned int neq, unsigned int nin);
+      void compute_slack(const HQPData & problemData, 
+                         HQPOutput & problemOutput);
 
       /** Solve the given Hierarchical Quadratic Program
        */
       const HQPOutput & solve(const HQPData & problemData);
       const HQPOutput & solve_local(const HQPData & problemData, 
                                     const HQPOutput & previousOutput);
+
 
       /** Get the objective value of the last solved problem. */
       double getObjectiveValue();

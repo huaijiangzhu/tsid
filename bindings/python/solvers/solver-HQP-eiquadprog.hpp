@@ -50,8 +50,10 @@ namespace tsid
         .add_property("ObjVal", &Solver::getObjectiveValue, "return obj value")
         .def("solve", &SolverHQuadProgPythonVisitor::solve, bp::args("HQPData"))
         .def("solve_local", &SolverHQuadProgPythonVisitor::solve_local, bp::args("HQPData","previousOutput"))
+        .def("compute_slack", &SolverHQuadProgPythonVisitor::compute_slack, bp::args("HQPData","problemOutput"))
         .def("solve", &SolverHQuadProgPythonVisitor::solver_helper, bp::args("HQPData for Python"))
         .def("solve_local", &SolverHQuadProgPythonVisitor::solve_local_helper, bp::args("HQPData for Python","previousOutput"))
+        .def("compute_slack", &SolverHQuadProgPythonVisitor::compute_slack_helper, bp::args("HQPData for Python","problemOutput"))
         ;
       }
        
@@ -70,17 +72,27 @@ namespace tsid
           return output;
       }
       static solvers::HQPOutput solve_local_helper(Solver & self, HQPDatas & HQPDatas,
-                                      const solvers::HQPOutput & previousOutput){
+                                                   const solvers::HQPOutput & previousOutput){
           solvers::HQPOutput output;
           solvers::HQPData data = HQPDatas.get();
           output = self.solve_local(data, previousOutput);
           return output;
       }
+      static void compute_slack(Solver & self, solvers::HQPData & problemData,
+                                solvers::HQPOutput & problemOutput){
+          solvers::HQPOutput output;
+          self.compute_slack(problemData, problemOutput);
+      }
+      static void compute_slack_helper(Solver & self, HQPDatas & HQPDatas,
+                                       solvers::HQPOutput & problemOutput){
+          solvers::HQPOutput output;
+          solvers::HQPData data = HQPDatas.get();
+          self.compute_slack(data, problemOutput);
+      }
       static solvers::HQPOutput solver_helper(Solver & self, HQPDatas & HQPDatas){
           solvers::HQPOutput output;
           solvers::HQPData data = HQPDatas.get();
           output = self.solve(data);
-         
           return output;
       }
 
