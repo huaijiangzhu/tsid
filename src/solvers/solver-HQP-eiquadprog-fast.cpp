@@ -197,10 +197,8 @@ namespace tsid
         m_output.status = HQP_STATUS_OPTIMAL;
         m_output.lambda = m_solver.getLagrangeMultipliers();
         m_output.iterations = m_solver.getIteratios();
-        //    m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(m_solver.getActiveSetSize()-m_neq);
         long unsigned int q = m_solver.getActiveSetSize(); 
-        m_output.activeSet = m_solver.getActiveSet().segment(m_neq, q - m_neq);
-
+        m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(q-m_neq);
         m_output.activeSetPy.resize(q - m_neq);
         m_output.m_H.resize(m_n, m_n);
         m_output.m_g.resize(m_n);
@@ -226,11 +224,10 @@ namespace tsid
         m_output.m_K.block(m_n, m_n, q, q).setZero();
 
         m_output.m_Kinv = m_output.m_K.inverse();
-
         compute_slack(problemData, m_output);
         
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
         const Vector & x = m_output.x;
         
         if(cl0.size()>0)
@@ -261,7 +258,7 @@ namespace tsid
             }
           }
         }
-#endif
+// #endif
       }
       else if(status==EIQUADPROG_FAST_UNBOUNDED)
         m_output.status = HQP_STATUS_INFEASIBLE;
