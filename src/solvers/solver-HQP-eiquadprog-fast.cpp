@@ -280,7 +280,7 @@ namespace tsid
       // check if constraints are satisfied and store the margin
       const ConstraintLevel & cl0 = problemData[0];
       const Vector & x = problemOutput.x;
-      problemOutput.m_delta.resize(cl0.size());
+      problemOutput.m_slack.resize(cl0.size());
 
       unsigned int i=0;
       if(cl0.size()>0)
@@ -291,7 +291,7 @@ namespace tsid
 
           if(constr->isEquality())
           {
-            problemOutput.m_delta(i) = (constr->matrix()*x-constr->vector()).norm();
+            problemOutput.m_slack(i) = (constr->matrix()*x-constr->vector()).norm();
           }
 
           else if(constr->isInequality())
@@ -302,11 +302,11 @@ namespace tsid
             < (constr->upperBound()-constr->matrix()*x).minCoeff()
             )
             {
-              problemOutput.m_delta(i) = (constr->matrix()*x-constr->lowerBound()).minCoeff();
+              problemOutput.m_slack(i) = (constr->matrix()*x-constr->lowerBound()).minCoeff();
             }
             else
             {
-              problemOutput.m_delta(i) = (constr->upperBound()-constr->matrix()*x).minCoeff();
+              problemOutput.m_slack(i) = (constr->upperBound()-constr->matrix()*x).minCoeff();
             }
           }
 
@@ -318,11 +318,11 @@ namespace tsid
             < (constr->upperBound()-x).minCoeff()
             )
             {
-              problemOutput.m_delta(i) = (x-constr->lowerBound()).minCoeff();
+              problemOutput.m_slack(i) = (x-constr->lowerBound()).minCoeff();
             }
             else
             {
-              problemOutput.m_delta(i) = (constr->upperBound()-x).minCoeff();
+              problemOutput.m_slack(i) = (constr->upperBound()-x).minCoeff();
             }
           }
           i++;

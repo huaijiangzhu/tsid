@@ -49,7 +49,7 @@ namespace tsid
       Vector m_g;          /// Hx* + A'lambda = -g
       Matrix m_K;          /// KKT matrix K = [[H A'];[A 0]]
       Matrix m_Kinv;       /// inverse of the KKT matrix
-      Vector m_delta;      /// constraint measures: equality -> norm, inequality -> smallest margin
+      Vector m_slack;      /// constraint slack: equality -> norm, inequality -> smallest margin
       int iterations;      /// number of iterations performed by the solver
       
       HQPOutput(){}
