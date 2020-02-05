@@ -20,7 +20,7 @@ To install [pinocchio](https://github.com/stack-of-tasks/pinocchio) follow the i
 ## Installation
 
     cd $DEVEL/openrobots/src/
-    git clone --recursive git@github.com:stack-of-tasks/tsid.git
+    git clone --recursive https://github.com/huaijiangzhu/tsid.git
     cd tsid
     mkdir _build-RELEASE
     cd _build-RELEASE
