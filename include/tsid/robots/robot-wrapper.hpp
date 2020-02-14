@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+
 namespace tsid
 {
   namespace robots
@@ -58,7 +59,9 @@ namespace tsid
       RobotWrapper(const std::string & filename,
                    const std::vector<std::string> & package_dirs,
                    bool verbose=false);
-      
+
+      RobotWrapper(const Model & m, bool verbose=false);
+
       RobotWrapper(const std::string & filename,
                    const std::vector<std::string> & package_dirs,
                    const pinocchio::JointModelVariant & rootJoint,
@@ -66,6 +69,7 @@ namespace tsid
       
       virtual int nq() const;
       virtual int nv() const;
+      virtual int na() const;
       
       ///
       /// \brief Accessor to model.
@@ -126,6 +130,9 @@ namespace tsid
       
       Motion frameVelocity(const Data & data,
                            const Model::FrameIndex index) const;
+
+      Motion frameVelocityWorldOriented(const Data & data,
+                                        const Model::FrameIndex index) const;
       
       void frameVelocity(const Data & data,
                          const Model::FrameIndex index,
@@ -134,6 +141,9 @@ namespace tsid
       Motion frameAcceleration(const Data & data,
                                const Model::FrameIndex index) const;
       
+      Motion frameAccelerationWorldOriented(const Data & data,
+                                            const Model::FrameIndex index) const;
+
       void frameAcceleration(const Data & data,
                              const Model::FrameIndex index,
                              Motion & frameAcceleration) const;
@@ -141,6 +151,9 @@ namespace tsid
       Motion frameClassicAcceleration(const Data & data,
                                       const Model::FrameIndex index) const;
       
+      Motion frameClassicAccelerationWorldOriented(const Data & data,
+                                                   const Model::FrameIndex index) const;
+
       void frameClassicAcceleration(const Data & data,
                                     const Model::FrameIndex index,
                                     Motion & frameAcceleration) const;
@@ -155,6 +168,7 @@ namespace tsid
       
     protected:
       
+      void init();
       void updateMd();
       
       
@@ -163,6 +177,7 @@ namespace tsid
       std::string m_model_filename;
       bool m_verbose;
       
+      int m_na;     /// number of actuators (nv for fixed-based, nv-6 for floating-base robots)
       Vector m_rotor_inertias;
       Vector m_gear_ratios;
       Vector m_Md;  /// diagonal part of inertia matrix due to rotor inertias

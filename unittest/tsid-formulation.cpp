@@ -26,6 +26,7 @@
 #include <tsid/tasks/task-com-equality.hpp>
 #include <tsid/tasks/task-se3-equality.hpp>
 #include <tsid/tasks/task-joint-posture.hpp>
+#include <tsid/tasks/task-joint-bounds.hpp>
 #include <tsid/trajectories/trajectory-euclidian.hpp>
 #include <tsid/solvers/solver-HQP-factory.hxx>
 #include <tsid/solvers/utils.hpp>
@@ -99,12 +100,13 @@ class StandardRomeoInvDynCtrl
   Contact6d * contactLF;
   TaskComEquality * comTask;
   TaskJointPosture * postureTask;
+  TaskJointBounds * jointBoundsTask;
   Vector q;
   Vector v;
   pinocchio::SE3 H_rf_ref;
   pinocchio::SE3 H_lf_ref;
 
-  StandardRomeoInvDynCtrl() : t(0.)
+  StandardRomeoInvDynCtrl(double dt) : t(0.)
   {
     vector<string> package_dirs;
     package_dirs.push_back(romeo_model_path);
@@ -112,10 +114,11 @@ class StandardRomeoInvDynCtrl
     robot = new RobotWrapper(urdfFileName, package_dirs, pinocchio::JointModelFreeFlyer());
     
     const string srdfFileName = package_dirs[0] + "/srdf/romeo_collision.srdf";
-    pinocchio::srdf::getNeutralConfigurationFromSrdf(robot->model(),srdfFileName);
+
+    pinocchio::srdf::loadReferenceConfigurations(robot->model(),srdfFileName,false);
     
     const unsigned int nv = robot->nv();
-    q = robot->model().neutralConfiguration;
+    q = neutral(robot->model());
     std::cout << "q: " << q.transpose() << std::endl;
     q(2) += 0.84;
     v = Vector::Zero(nv);
@@ -161,6 +164,13 @@ class StandardRomeoInvDynCtrl
     postureTask->Kp(kp_posture*Vector::Ones(nv-6));
     postureTask->Kd(2.0*postureTask->Kp().cwiseSqrt());
     tsid->addMotionTask(*postureTask, w_posture, 1);
+
+    // Add the joint bounds task
+    jointBoundsTask = new TaskJointBounds("task-joint-bounds", *robot, dt);
+    Vector dq_max = 10*Vector::Ones(robot->na());
+    Vector dq_min = -dq_max;
+    jointBoundsTask->setVelocityBounds(dq_min, dq_max);
+    tsid->addMotionTask(*jointBoundsTask, 1.0, 0);
   }
 };
 
@@ -193,7 +203,7 @@ BOOST_AUTO_TEST_CASE ( test_invdyn_formulation_acc_force_remove_contact )
   const double w_RF = 1e3;
   double t = 0.0;
 
-  StandardRomeoInvDynCtrl romeo_inv_dyn;
+  StandardRomeoInvDynCtrl romeo_inv_dyn(dt);
   RobotWrapper & robot = *(romeo_inv_dyn.robot);
   InverseDynamicsFormulationAccForce * tsid = romeo_inv_dyn.tsid;
   Contact6d & contactRF = *(romeo_inv_dyn.contactRF);
@@ -322,7 +332,7 @@ BOOST_AUTO_TEST_CASE ( test_invdyn_formulation_acc_force )
   const unsigned int PRINT_N = 100;
   double t = 0.0;
 
-  StandardRomeoInvDynCtrl romeo_inv_dyn;
+  StandardRomeoInvDynCtrl romeo_inv_dyn(dt);
   RobotWrapper & robot = *(romeo_inv_dyn.robot);
   InverseDynamicsFormulationAccForce * tsid = romeo_inv_dyn.tsid;
   Contact6d & contactRF = *(romeo_inv_dyn.contactRF);
@@ -504,7 +514,7 @@ BOOST_AUTO_TEST_CASE ( test_contact_point_invdyn_formulation_acc_force )
 
   BOOST_REQUIRE(robot.model().existFrame(frameName));
 
-  Vector q = robot.model().neutralConfiguration;
+  Vector q = neutral(robot.model());
   Vector v = Vector::Zero(robot.nv());
   const unsigned int nv = robot.nv();
 
@@ -554,8 +564,8 @@ BOOST_AUTO_TEST_CASE ( test_contact_point_invdyn_formulation_acc_force )
   for (int i = 0; i < 4; i++) {
     ContactPoint* cp = new ContactPoint("contact_" + contactFrames[i], robot,
         contactFrames[i], contactNormal, mu, fMin, fMax);
-    cp->Kp(kp_contact*Vector::Ones(6));
-    cp->Kd(2.0*cp->Kp().cwiseSqrt());
+    cp->Kp(kp_contact*Vector::Ones(3));
+    cp->Kd(2.0*sqrt(kp_contact)*Vector::Ones(3));
     cp->setReference(robot.framePosition(data, robot.model().getFrameId(contactFrames[i])));
     cp->useLocalFrame(false);
     tsid->addRigidContact(*cp, w_forceReg, 1.0, 1);
@@ -647,7 +657,7 @@ BOOST_AUTO_TEST_CASE ( test_invdyn_formulation_acc_force_computation_time )
   const double dt = 0.001;
   double t = 0.0;
 
-  StandardRomeoInvDynCtrl romeo_inv_dyn;
+  StandardRomeoInvDynCtrl romeo_inv_dyn(dt);
   RobotWrapper & robot = *(romeo_inv_dyn.robot);
   InverseDynamicsFormulationAccForce * tsid = romeo_inv_dyn.tsid;
   TaskComEquality & comTask = *(romeo_inv_dyn.comTask);
@@ -671,7 +681,7 @@ BOOST_AUTO_TEST_CASE ( test_invdyn_formulation_acc_force_computation_time )
   SolverHQPBase * solver_fast = SolverHQPFactory::createNewSolver(SOLVER_HQP_EIQUADPROG_FAST,
                                                                   "eiquadprog-fast");
   SolverHQPBase * solver_rt =
-      SolverHQPFactory::createNewSolver<61,18,34>(SOLVER_HQP_EIQUADPROG_RT,
+      SolverHQPFactory::createNewSolver<61,18,71>(SOLVER_HQP_EIQUADPROG_RT,
                                                   "eiquadprog-rt");
 
   solver->resize(tsid->nVar(), tsid->nEq(), tsid->nIn());
