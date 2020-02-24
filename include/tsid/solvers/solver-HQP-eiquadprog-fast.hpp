@@ -20,6 +20,7 @@
 
 #include "tsid/solvers/solver-HQP-base.hpp"
 #include "tsid/solvers/eiquadprog-fast.hpp"
+#include <soth/HCOD.hpp>
 
 namespace tsid
 {
@@ -42,15 +43,13 @@ namespace tsid
       SolverHQuadProgFast(const std::string & name);
 
       void resize(unsigned int n, unsigned int neq, unsigned int nin);
-      void compute_slack(const HQPData & problemData, 
-                         HQPOutput & problemOutput);
 
       /** Solve the given Hierarchical Quadratic Program
        */
       const HQPOutput & solve(const HQPData & problemData);
-      const HQPOutput & solve_local(const HQPData & problemData, 
-                                    const HQPOutput & previousOutput);
-
+      /** Resolve the given Hierarchical Quadratic Program with changed right hand side
+       */
+      const HQPOutput & resolve(const HQPData & problemData);
 
       /** Get the objective value of the last solved problem. */
       double getObjectiveValue();
@@ -80,6 +79,13 @@ namespace tsid
       unsigned int m_neq;  /// number of equality constraints
       unsigned int m_nin;  /// number of inequality constraints
       unsigned int m_n;    /// number of variables
+
+      soth::HCOD hcod;
+      int p;
+      int nVar;
+      std::vector<Matrix> J;
+      std::vector<soth::VectorBound> b;
+
     };
   }
 }

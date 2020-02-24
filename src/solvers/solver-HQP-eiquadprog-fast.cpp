@@ -43,86 +43,67 @@ namespace tsid
     {
       std::cout<<"[SolverHQuadProgFast."<<m_name<<"] "<<s<<std::endl;
     }
-    
+
     void SolverHQuadProgFast::resize(unsigned int n, unsigned int neq, unsigned int nin)
     {
-      const bool resizeVar = n!=m_n;
-      const bool resizeEq = (resizeVar || neq!=m_neq );
-      const bool resizeIn = (resizeVar || nin!=m_nin );
-      
-      if(resizeEq)
-      {
-#ifndef NDEBUG
-        sendMsg("Resizing equality constraints from "+toString(m_neq)+" to "+toString(neq));
-#endif
-        m_CE.resize(neq, n);
-        m_ce0.resize(neq);
-      }
-      if(resizeIn)
-      {
-#ifndef NDEBUG
-        sendMsg("Resizing inequality constraints from "+toString(m_nin)+" to "+toString(nin));
-#endif
-        m_CI.resize(2*nin, n);
-        m_ci0.resize(2*nin);
-      }
-      if(resizeVar)
-      {
-#ifndef NDEBUG
-        sendMsg("Resizing Hessian from "+toString(m_n)+" to "+toString(n));
-#endif
-        m_H.resize(n, n);
-        m_g.resize(n);
-      }
-      
-      if(resizeVar || resizeIn || resizeEq)
-      {
-        m_solver.reset(n, neq, nin*2);
-        m_output.resize(n, neq, 2*nin);
-      }
-      
-      m_n = n;
-      m_neq = neq;
-      m_nin = nin;
+      hcod.resize(nVar,p);
+      J.resize(p);
+      b.resize(p);
     }
     
     const HQPOutput & SolverHQuadProgFast::solve(const HQPData & problemData)
     {
       START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
-      
-      if(problemData.size()>2)
+
+      // assign the constraint matrices
+      /* SOTH resize */
+      p = problemData.size();
+
+      if (p > 0)
       {
-        assert(false && "Solver not implemented for more than 2 hierarchical levels.");
+        nVar = problemData[0][0].second->cols();
       }
-      
-      // Compute the constraint matrix sizes
-      unsigned int neq = 0, nin = 0;
-      const ConstraintLevel & cl0 = problemData[0];
-      if(cl0.size()>0)
+      else
+          return m_output;
+
+      hcod.resize(nVar,p);
+
+      int l=0;
+      for (const auto & cl : problemData)
       {
-        const unsigned int n = cl0[0].second->cols();
-        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
+        unsigned int neq = 0, nin = 0;
+        for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
           const ConstraintBase* constr = it->second;
-          assert(n==constr->cols());
+          assert(nVar==constr->cols());
           if(constr->isEquality())
             neq += constr->rows();
           else
             nin += constr->rows();
         }
         // If necessary, resize the constraint matrices
-        resize(n, neq, nin);
-        
+        // resize(1,1,1);
+
+        J[l].resize(neq+nin,m_n);
+        J[l].topRows(neq) = m_CI;
+        J[l].topRows(nin) = m_CE;
+        b[l].resize(neq + nin);
+
         int i_eq=0, i_in=0;
-        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
+        for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
           const ConstraintBase* constr = it->second;
           if(constr->isEquality())
           {
             m_CE.middleRows(i_eq, constr->rows()) = constr->matrix();
             m_ce0.segment(i_eq, constr->rows())   = -constr->vector();
+            J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
+            for (int c=0;c<constr->rows();c++)
+            {
+                b[l][i_eq+c] = soth::Bound(-constr->vector()[c],-constr->vector()[c]);
+            }
             i_eq += constr->rows();
-          }
+        }
           else if(constr->isInequality())
           {
             m_CI.middleRows(i_in, constr->rows()) = constr->matrix();
@@ -130,6 +111,11 @@ namespace tsid
             i_in += constr->rows();
             m_CI.middleRows(i_in, constr->rows()) = -constr->matrix();
             m_ci0.segment(i_in, constr->rows())   = constr->upperBound();
+            J[l].block(neq+i_in,0,constr->rows(),m_n) = -constr->matrix();
+            for (int c=0;c<constr->rows();c++)
+            {
+                b[l][neq+i_in+c] = soth::Bound(-constr->lowerBound()[c],constr->upperBound()[c]);
+            }
             i_in += constr->rows();
           }
           else if(constr->isBound())
@@ -139,335 +125,59 @@ namespace tsid
             i_in += constr->rows();
             m_CI.middleRows(i_in, constr->rows()) = -Matrix::Identity(m_n, m_n);
             m_ci0.segment(i_in, constr->rows())   = constr->upperBound();
+            J[l].block(neq+i_in,0,constr->rows(),m_n) = -Matrix::Identity(m_n,m_n);
+            for (int c=0;c<constr->rows();c++)
+            {
+                b[l][neq+i_in+c] = soth::Bound(-constr->lowerBound()[c],constr->upperBound()[c]);
+            }
             i_in += constr->rows();
           }
         }
+
+        std::cout<<"J["<<l<<"]:\n"<<J[l]<<std::endl;
+        hcod.pushBackStage(J[l],b[l]);
+        l += 1;
       }
-      else
-        resize(m_n, neq, nin);
-      
-      EIGEN_MALLOC_NOT_ALLOWED;
 
-      if(problemData.size()>1)
-      {
-        const ConstraintLevel & cl1 = problemData[1];
-        m_H.setZero();
-        m_g.setZero();
-        
-        
-        for(ConstraintLevel::const_iterator it=cl1.begin(); it!=cl1.end(); it++)
-        {
-          const double & w = it->first;
-          const ConstraintBase* constr = it->second;
-          if(!constr->isEquality())
-            assert(false && "Inequalities in the cost function are not implemented yet");
-          
-          EIGEN_MALLOC_ALLOWED;
-          m_H.noalias() += w*constr->matrix().transpose()*constr->matrix();
-          EIGEN_MALLOC_NOT_ALLOWED;
-          
-          m_g.noalias() -= w*constr->matrix().transpose()*constr->vector();
-        }
-        
-        m_H.diagonal().array() += m_hessian_regularization;
-      }
-      
-      STOP_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
-      
-      
-      START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_SOLUTION);
-      //  min 0.5 * x G x + g0 x
-      //  s.t.
-      //  CE x + ce0 = 0
-      //  CI x + ci0 >= 0
-      EIGEN_MALLOC_ALLOWED
-      EiquadprogFast_status status = m_solver.solve_quadprog(m_H, m_g,
-                                                             m_CE, m_ce0,
-                                                             m_CI, m_ci0,
-                                                             m_output.x);
-    
-      STOP_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_SOLUTION);
-      
-      
-      if(status == EIQUADPROG_FAST_OPTIMAL)
-      {
-        m_output.status = HQP_STATUS_OPTIMAL;
-        m_output.lambda = m_solver.getLagrangeMultipliers();
-        m_output.iterations = m_solver.getIteratios();
-        long unsigned int q = m_solver.getActiveSetSize(); 
-        m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(q-m_neq);
-        m_output.activeSetPy.resize(q - m_neq);
-        m_output.m_H.resize(m_n, m_n);
-        m_output.m_g.resize(m_n);
-        m_output.m_A.resize(q, m_n);
-        m_output.m_b.resize(q);
-        m_output.m_K.resize(m_n + q, m_n + q);
-        m_output.m_Kinv.resize(m_n + q, m_n + q);
 
-        m_output.m_A.topRows(m_neq) = m_CE;
-        m_output.m_H.topRows(m_n) = m_H;
-        m_output.m_b.head(m_neq) = m_ce0;
-        m_output.m_g.head(m_n) = m_g;
+      /* solve HCOD */
+      hcod.setNameByOrder("stage_");
+      hcod.useDamp(false);
+      // const double dampingFactor = 0.0;
+      // hcod.setDamping(dampingFactor);
+      // hcod.stage(0).damping(0);
+      hcod.setInitialActiveSet();
 
-        for (unsigned int i=m_neq; i < q; i++){
-          m_output.activeSetPy(i - m_neq) = m_output.activeSet(i - m_neq);
-          m_output.m_A.middleRows(i, 1) = m_CI.middleRows(m_output.activeSet(i - m_neq), 1);
-          m_output.m_b(i) = m_ci0(m_output.activeSet(i - m_neq));
-        }
+      // if (memory.iteration > 0) {
+      //     hcod.setInitialActiveSet(memory.hcodAS);
+      // } else {
+      //     // hcod.setInitialActiveSet(memory.hcodAS);
+      //     hcod.setInitialActiveSet();
+      // }
+      //   // }
+      // hcod.initialize();
 
-        m_output.m_K.block(0, 0, m_n, m_n) = m_output.m_H;
-        m_output.m_K.block(m_n, 0, q, m_n) = -m_output.m_A;
-        m_output.m_K.block(0, m_n, m_n, q) = -m_output.m_A.transpose();
-        m_output.m_K.block(m_n, m_n, q, q).setZero();
+      Eigen::VectorXd hcodSolution = Eigen::VectorXd::Zero(m_n);
+      hcod.activeSearch(hcodSolution);
+      std::cout<<"hcod solution: "<<hcodSolution.transpose()<<std::endl;
 
-        m_output.m_Kinv = m_output.m_K.inverse();
-        compute_slack(problemData, m_output);
-        
-
-// #ifndef NDEBUG
-        const Vector & x = m_output.x;
-        
-        if(cl0.size()>0)
-        {
-          for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
-          {
-            const ConstraintBase* constr = it->second;
-            if(constr->checkConstraint(x)==false)
-            {
-              m_output.status = HQP_STATUS_ERROR;
-              if(constr->isEquality())
-              {
-                sendMsg("Equality "+constr->name()+" violated: "+
-                        toString((constr->matrix()*x-constr->vector()).norm()));
-              }
-              else if(constr->isInequality())
-              {
-                sendMsg("Inequality "+constr->name()+" violated: "+
-                        toString((constr->matrix()*x-constr->lowerBound()).minCoeff())+"\n"+
-                        toString((constr->upperBound()-constr->matrix()*x).minCoeff()));
-              }
-              else if(constr->isBound())
-              {
-                sendMsg("Bound "+constr->name()+" violated: "+
-                        toString((x-constr->lowerBound()).minCoeff())+"\n"+
-                        toString((constr->upperBound()-x).minCoeff()));
-              }
-            }
-          }
-        }
-// #endif
-      }
-      else if(status==EIQUADPROG_FAST_UNBOUNDED)
-        m_output.status = HQP_STATUS_INFEASIBLE;
-      else if(status==EIQUADPROG_FAST_MAX_ITER_REACHED)
-        m_output.status = HQP_STATUS_MAX_ITER_REACHED;
-      else if(status==EIQUADPROG_FAST_REDUNDANT_EQUALITIES)
-        m_output.status = HQP_STATUS_ERROR;
+      //   // m_output.m_Kinv = m_output.m_K.inverse();
+      //   // compute_slack(problemData, m_output);
       
       return m_output;
     }
-
-
-    void SolverHQuadProgFast::compute_slack(const HQPData & problemData, 
-                                            HQPOutput & problemOutput)
-    {
-      // check if constraints are satisfied and store the margin
-      const ConstraintLevel & cl0 = problemData[0];
-      const Vector & x = problemOutput.x;
-      problemOutput.m_slack.resize(cl0.size());
-
-      unsigned int i=0;
-      if(cl0.size()>0)
-      {
-        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
-        {
-          const ConstraintBase* constr = it->second;
-
-          if(constr->isEquality())
-          {
-            problemOutput.m_slack(i) = (constr->matrix()*x-constr->vector()).norm();
-          }
-
-          else if(constr->isInequality())
-          {
-            // is there a simple eigen function to do this????
-            if (
-              (constr->matrix()*x-constr->lowerBound()).minCoeff()
-            < (constr->upperBound()-constr->matrix()*x).minCoeff()
-            )
-            {
-              problemOutput.m_slack(i) = (constr->matrix()*x-constr->lowerBound()).minCoeff();
-            }
-            else
-            {
-              problemOutput.m_slack(i) = (constr->upperBound()-constr->matrix()*x).minCoeff();
-            }
-          }
-
-          else if(constr->isBound())
-          {
-            // is there a simple eigen function to do this????
-            if (
-              (x-constr->lowerBound()).minCoeff()
-            < (constr->upperBound()-x).minCoeff()
-            )
-            {
-              problemOutput.m_slack(i) = (x-constr->lowerBound()).minCoeff();
-            }
-            else
-            {
-              problemOutput.m_slack(i) = (constr->upperBound()-x).minCoeff();
-            }
-          }
-          i++;
-        }
-      }
-    }
-
-    const HQPOutput & SolverHQuadProgFast::solve_local(const HQPData & problemData, 
-                                                       const HQPOutput & previousOutput)
-    {
-      
-//#ifndef EIGEN_RUNTIME_NO_MALLOC
-      EIGEN_MALLOC_NOT_ALLOWED
-//#endif
-      
-      START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
-      
-      if(problemData.size()>2)
-      {
-        assert(false && "Solver not implemented for more than 2 hierarchical levels.");
-      }
-      
-      // Compute the constraint matrix sizes
-      unsigned int neq = 0, nin = 0;
-      const ConstraintLevel & cl0 = problemData[0];
-      if(cl0.size()>0)
-      {
-        const unsigned int n = cl0[0].second->cols();
-        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
-        {
-          const ConstraintBase* constr = it->second;
-          assert(n==constr->cols());
-          if(constr->isEquality())
-            neq += constr->rows();
-          else
-            nin += constr->rows();
-        }
-        // If necessary, resize the constraint matrices
-        resize(n, neq, nin);
-        
-        int i_eq=0, i_in=0;
-        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
-        {
-          const ConstraintBase* constr = it->second;
-          if(constr->isEquality())
-          {
-            m_CE.middleRows(i_eq, constr->rows()) = constr->matrix();
-            m_ce0.segment(i_eq, constr->rows())   = -constr->vector();
-            i_eq += constr->rows();
-          }
-          else if(constr->isInequality())
-          {
-            m_CI.middleRows(i_in, constr->rows()) = constr->matrix();
-            m_ci0.segment(i_in, constr->rows())   = -constr->lowerBound();
-            i_in += constr->rows();
-            m_CI.middleRows(i_in, constr->rows()) = -constr->matrix();
-            m_ci0.segment(i_in, constr->rows())   = constr->upperBound();
-            i_in += constr->rows();
-          }
-          else if(constr->isBound())
-          {
-            m_CI.middleRows(i_in, constr->rows()).setIdentity();
-            m_ci0.segment(i_in, constr->rows())   = -constr->lowerBound();
-            i_in += constr->rows();
-            m_CI.middleRows(i_in, constr->rows()) = -Matrix::Identity(m_n, m_n);
-            m_ci0.segment(i_in, constr->rows())   = constr->upperBound();
-            i_in += constr->rows();
-          }
-        }
-      }
-      else
-        resize(m_n, neq, nin);
-      
-      if(problemData.size()>1)
-      {
-        const ConstraintLevel & cl1 = problemData[1];
-        m_H.setZero();
-        m_g.setZero();
-        
-        
-        for(ConstraintLevel::const_iterator it=cl1.begin(); it!=cl1.end(); it++)
-        {
-          const double & w = it->first;
-          const ConstraintBase* constr = it->second;
-          if(!constr->isEquality())
-            assert(false && "Inequalities in the cost function are not implemented yet");
-          
-          EIGEN_MALLOC_ALLOWED;
-          m_H.noalias() += w*constr->matrix().transpose()*constr->matrix();
-          EIGEN_MALLOC_NOT_ALLOWED;
-          
-          m_g.noalias() -= w*constr->matrix().transpose()*constr->vector();
-        }
-        
-        m_H.diagonal().array() += m_hessian_regularization;
-      }
-      
-      STOP_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
-      
-      
-      START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_SOLUTION);
-      //  min 0.5 * x G x + g0 x
-      //  s.t.
-      //  CE x + ce0 = 0
-      //  CI x + ci0 >= 0
-      EIGEN_MALLOC_ALLOWED
-
-    
-      STOP_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_SOLUTION);
-
-      m_output.status = HQP_STATUS_OPTIMAL;
-      // m_output.lambda = m_solver.getLagrangeMultipliers();
-      // m_output.iterations = m_solver.getIteratios();
-      // //    m_output.activeSet = m_solver.getActiveSet().tail(2*m_nin).head(m_solver.getActiveSetSize()-m_neq);
-      // long unsigned int q = m_solver.getActiveSetSize(); 
-      // m_output.activeSet = m_solver.getActiveSet().segment(m_neq, q - m_neq);
-      long unsigned int q = previousOutput.activeSet.rows() + m_neq;
-      m_output.activeSet.resize(q - m_neq);
-      m_output.activeSetPy.resize(q - m_neq);
-      m_output.x.resize(m_n);
-      m_output.m_A.resize(q, m_n);
-      m_output.m_b.resize(q);
-      m_output.m_K.resize(m_n + q, m_n + q);
-      m_output.m_Kinv.resize(m_n + q, m_n + q);
-
-      m_output.activeSet = previousOutput.activeSet;
-      m_output.activeSetPy = previousOutput.activeSetPy;
-      m_output.m_Kinv = previousOutput.m_Kinv;
-      m_output.m_A.topRows(m_neq) = m_CE;
-      m_output.m_b.head(m_neq) = m_ce0;
-
-      for (unsigned int i=m_neq; i < q; i++){
-        m_output.m_A.middleRows(i, 1) = m_CI.middleRows(m_output.activeSet(i - m_neq), 1);
-        m_output.m_b(i) = m_ci0(m_output.activeSet(i - m_neq));
-      }
-
-      math::Vector gb;
-      gb.resize(m_n + q);
-      gb.head(m_n) = -m_g;
-      gb.segment(m_n, q) = m_output.m_b;
-      math::Vector sol = previousOutput.m_Kinv*gb;
-      m_output.x = sol.segment(0, m_n);
-      m_output.lambda = sol.segment(m_n, m_n + q);
-      compute_slack(problemData, m_output);
-      return m_output;
-    }
-
     
     double SolverHQuadProgFast::getObjectiveValue()
     {
       return m_solver.getObjValue();
+    }
+
+    const HQPOutput & SolverHQuadProgFast::resolve(const HQPData & problemData)
+    {
+        hcod.resetBounds(b);
+        Eigen::VectorXd hcodSolution = Eigen::VectorXd::Zero(m_n);
+        hcod.activeSearch(hcodSolution);
+
     }
     
     bool SolverHQuadProgFast::setMaximumIterations(unsigned int maxIter)
@@ -477,5 +187,6 @@ namespace tsid
     }
   }
 }
+
 
 
