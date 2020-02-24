@@ -31,20 +31,25 @@ namespace tsid
     SolverHQPBase* SolverHQPFactory::createNewSolver(const SolverHQP solverType,
                                                      const std::string & name)
     {
-      if(solverType==SOLVER_HQP_EIQUADPROG)
-        return new SolverHQuadProg(name);
-      
-      if(solverType==SOLVER_HQP_EIQUADPROG_FAST)
-      {
-        return new SolverHQuadProgFast(name);
-      }
-      
-#ifdef QPOASES_FOUND
-      if(solverType==SOLVER_HQP_QPOASES)
-        return new Solver_HQP_qpoases(name);
-#endif
-      
-      assert(false && "Specified solver type not recognized");
+      //   std::cout<<"name: "<<name<<std::endl;
+      //   std::cout<<"create new solver factory"<<std::endl;
+      //   throw("asd");
+      //   exit(0);
+      // if(solverType==SOLVER_HQP_EIQUADPROG)
+      //   return new SolverHQuadProg(name);
+      // 
+      // if(solverType==SOLVER_HQP_EIQUADPROG_FAST)
+      // {
+      //     std::cout<<"factoryfast"<<std::endl;
+      //   return new SolverHQuadProgFast(name);
+      // }
+      // 
+#ifdef//  QPOASES_FOUND
+      // if(solverType==SOLVER_HQP_QPOASES)
+      //   return new Solver_HQP_qpoases(name);
+#endif// 
+      // 
+      // assert(false && "Specified solver type not recognized");
       return NULL;
     }
     

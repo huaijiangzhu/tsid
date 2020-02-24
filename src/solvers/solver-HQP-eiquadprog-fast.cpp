@@ -46,7 +46,6 @@ namespace tsid
 
     void SolverHQuadProgFast::resize(unsigned int n, unsigned int neq, unsigned int nin)
     {
-      // hcod.resize(m_n,p);
       // FIXME: make hcod restartable
       hcod = soth::HCOD(m_n,p);
       hcod.setNameByOrder("stage_");
@@ -126,7 +125,6 @@ namespace tsid
           }
         }
 
-        std::cout<<"J["<<l<<"]:\n"<<J[l]<<std::endl;
         hcod.pushBackStage(J[l],b[l]);
         l += 1;
       }
@@ -134,7 +132,6 @@ namespace tsid
 
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
-      std::cout<<"hcod solution: "<<m_output.x.transpose()<<std::endl;
       activeSet = hcod.getOptimalActiveSet();
 
       // TODO: get lagrange multipliers / slack
@@ -182,6 +179,7 @@ namespace tsid
             i_in += constr->rows();
           }
         }
+        l += 1;
       }
 
       // reset bounds and resolve
@@ -191,6 +189,10 @@ namespace tsid
 
       return m_output;
 
+    }
+
+    const std::vector<Eigen::MatrixXd>& SolverHQuadProgFast::getLagrangeMultipliers() {
+        return hcod.getLagrangeMultipliers();
     }
     
     bool SolverHQuadProgFast::setMaximumIterations(unsigned int maxIter)

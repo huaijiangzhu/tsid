@@ -47,13 +47,16 @@ namespace tsid
       /** Solve the given Hierarchical Quadratic Program
        */
       const HQPOutput & solve(const HQPData & problemData);
+      /** Kai hacks
+       */
       /** set the initial active set for warm start
        */
       const HQPOutput & setInitialActiveSet(const HQPData & problemData);
-
       /** Resolve the given Hierarchical Quadratic Program with changed right hand side
        */
       const HQPOutput & resolve(const HQPData & problemData);
+      const std::vector<Eigen::MatrixXd>& getLagrangeMultipliers();
+
 
       /** Get the objective value of the last solved problem. */
       double getObjectiveValue();
