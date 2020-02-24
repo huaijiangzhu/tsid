@@ -47,6 +47,10 @@ namespace tsid
       /** Solve the given Hierarchical Quadratic Program
        */
       const HQPOutput & solve(const HQPData & problemData);
+      /** set the initial active set for warm start
+       */
+      const HQPOutput & setInitialActiveSet(const HQPData & problemData);
+
       /** Resolve the given Hierarchical Quadratic Program with changed right hand side
        */
       const HQPOutput & resolve(const HQPData & problemData);
@@ -56,6 +60,12 @@ namespace tsid
 
       /** Set the current maximum number of iterations performed by the solver. */
       bool setMaximumIterations(unsigned int maxIter);
+
+      void compute_slack(const HQPData & problemData,
+        HQPOutput & problemOutput);
+
+      const HQPOutput & solve_local(const HQPData & problemData,
+                              const HQPOutput & previousOutput);
 
     protected:
 
@@ -82,9 +92,15 @@ namespace tsid
 
       soth::HCOD hcod;
       int p;
-      int nVar;
       std::vector<Matrix> J;
       std::vector<soth::VectorBound> b;
+      // sizes of the hierarchy levels
+      struct level {
+          unsigned int m_neq = 0;
+          unsigned int m_nin = 0;
+      };
+      std::vector<level> hLvl;
+      std::vector<soth::cstref_vector_t> activeSet;
 
     };
   }

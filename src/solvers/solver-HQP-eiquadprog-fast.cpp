@@ -46,7 +46,13 @@ namespace tsid
 
     void SolverHQuadProgFast::resize(unsigned int n, unsigned int neq, unsigned int nin)
     {
-      hcod.resize(nVar,p);
+      // hcod.resize(m_n,p);
+      // FIXME: make hcod restartable
+      hcod = soth::HCOD(m_n,p);
+      hcod.setNameByOrder("stage_");
+      hcod.useDamp(false);
+      hcod.setInitialActiveSet(activeSet);
+      hLvl.resize(p);
       J.resize(p);
       b.resize(p);
     }
@@ -59,35 +65,33 @@ namespace tsid
       /* SOTH resize */
       p = problemData.size();
 
+      // number of variables
       if (p > 0)
       {
-        nVar = problemData[0][0].second->cols();
+        m_n = problemData[0][0].second->cols();
       }
       else
           return m_output;
 
-      hcod.resize(nVar,p);
+      resize(0,0,0);
 
       int l=0;
       for (const auto & cl : problemData)
       {
-        unsigned int neq = 0, nin = 0;
         for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
           const ConstraintBase* constr = it->second;
-          assert(nVar==constr->cols());
+          assert(m_n==constr->cols());
           if(constr->isEquality())
-            neq += constr->rows();
+            hLvl[l].m_neq += constr->rows();
           else
-            nin += constr->rows();
+            hLvl[l].m_nin += constr->rows();
         }
         // If necessary, resize the constraint matrices
         // resize(1,1,1);
 
-        J[l].resize(neq+nin,m_n);
-        J[l].topRows(neq) = m_CI;
-        J[l].topRows(nin) = m_CE;
-        b[l].resize(neq + nin);
+        J[l].resize(hLvl[l].m_neq + hLvl[l].m_nin,m_n);
+        b[l].resize(hLvl[l].m_neq + hLvl[l].m_nin);
 
         int i_eq=0, i_in=0;
         for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
@@ -95,40 +99,28 @@ namespace tsid
           const ConstraintBase* constr = it->second;
           if(constr->isEquality())
           {
-            m_CE.middleRows(i_eq, constr->rows()) = constr->matrix();
-            m_ce0.segment(i_eq, constr->rows())   = -constr->vector();
             J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][i_eq+c] = soth::Bound(-constr->vector()[c],-constr->vector()[c]);
+                b[l][i_eq+c] = soth::Bound(constr->vector()[c],constr->vector()[c]);
             }
             i_eq += constr->rows();
-        }
+          }
           else if(constr->isInequality())
           {
-            m_CI.middleRows(i_in, constr->rows()) = constr->matrix();
-            m_ci0.segment(i_in, constr->rows())   = -constr->lowerBound();
-            i_in += constr->rows();
-            m_CI.middleRows(i_in, constr->rows()) = -constr->matrix();
-            m_ci0.segment(i_in, constr->rows())   = constr->upperBound();
-            J[l].block(neq+i_in,0,constr->rows(),m_n) = -constr->matrix();
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = constr->matrix();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][neq+i_in+c] = soth::Bound(-constr->lowerBound()[c],constr->upperBound()[c]);
+                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
             }
             i_in += constr->rows();
           }
           else if(constr->isBound())
           {
-            m_CI.middleRows(i_in, constr->rows()).setIdentity();
-            m_ci0.segment(i_in, constr->rows())   = -constr->lowerBound();
-            i_in += constr->rows();
-            m_CI.middleRows(i_in, constr->rows()) = -Matrix::Identity(m_n, m_n);
-            m_ci0.segment(i_in, constr->rows())   = constr->upperBound();
-            J[l].block(neq+i_in,0,constr->rows(),m_n) = -Matrix::Identity(m_n,m_n);
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setIdentity(); // FIXME: need to set the correct variable to 1
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][neq+i_in+c] = soth::Bound(-constr->lowerBound()[c],constr->upperBound()[c]);
+                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
             }
             i_in += constr->rows();
           }
@@ -141,29 +133,12 @@ namespace tsid
 
 
       /* solve HCOD */
-      hcod.setNameByOrder("stage_");
-      hcod.useDamp(false);
-      // const double dampingFactor = 0.0;
-      // hcod.setDamping(dampingFactor);
-      // hcod.stage(0).damping(0);
-      hcod.setInitialActiveSet();
+      hcod.activeSearch(m_output.x);
+      std::cout<<"hcod solution: "<<m_output.x.transpose()<<std::endl;
+      activeSet = hcod.getOptimalActiveSet();
 
-      // if (memory.iteration > 0) {
-      //     hcod.setInitialActiveSet(memory.hcodAS);
-      // } else {
-      //     // hcod.setInitialActiveSet(memory.hcodAS);
-      //     hcod.setInitialActiveSet();
-      // }
-      //   // }
-      // hcod.initialize();
+      // TODO: get lagrange multipliers / slack
 
-      Eigen::VectorXd hcodSolution = Eigen::VectorXd::Zero(m_n);
-      hcod.activeSearch(hcodSolution);
-      std::cout<<"hcod solution: "<<hcodSolution.transpose()<<std::endl;
-
-      //   // m_output.m_Kinv = m_output.m_K.inverse();
-      //   // compute_slack(problemData, m_output);
-      
       return m_output;
     }
     
@@ -174,9 +149,47 @@ namespace tsid
 
     const HQPOutput & SolverHQuadProgFast::resolve(const HQPData & problemData)
     {
-        hcod.resetBounds(b);
-        Eigen::VectorXd hcodSolution = Eigen::VectorXd::Zero(m_n);
-        hcod.activeSearch(hcodSolution);
+      // get the changed rhs
+      int l=0;
+      for (const auto & cl : problemData)
+      {
+        int i_eq=0, i_in=0;
+        for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
+        {
+          const ConstraintBase* constr = it->second;
+          if(constr->isEquality())
+          {
+            for (int c=0;c<constr->rows();c++)
+            {
+                b[l][i_eq+c] = soth::Bound(constr->vector()[c],constr->vector()[c]);
+            }
+            i_eq += constr->rows();
+          }
+          else if(constr->isInequality())
+          {
+            for (int c=0;c<constr->rows();c++)
+            {
+                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
+            }
+            i_in += constr->rows();
+          }
+          else if(constr->isBound())
+          {
+            for (int c=0;c<constr->rows();c++)
+            {
+                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
+            }
+            i_in += constr->rows();
+          }
+        }
+      }
+
+      // reset bounds and resolve
+      hcod.resetBounds(b);
+      // continue active search with 1 iteration
+      hcod.activeSearch_cont(m_output.x,1);
+
+      return m_output;
 
     }
     
@@ -184,6 +197,14 @@ namespace tsid
     {
       SolverHQPBase::setMaximumIterations(maxIter);
       return m_solver.setMaxIter(maxIter);
+    }
+
+    void SolverHQuadProgFast::compute_slack(const HQPData & problemData, 
+                                            HQPOutput & problemOutput) {
+    }
+
+    const HQPOutput & SolverHQuadProgFast::solve_local(const HQPData & problemData,
+                                                       const HQPOutput & previousOutput) {
     }
   }
 }
