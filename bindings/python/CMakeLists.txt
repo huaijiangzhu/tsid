@@ -32,7 +32,7 @@ ENDMACRO(SYMLINK_AND_INSTALL_HEADERS HEADERS SUBPATH)
 FUNCTION(REMOVE_PATH_FROM_LIST list_name path_name dest_list)
   SET(list_name_)
   FOREACH(header ${list_name})
-    STRING(REGEX REPLACE "${path_name}" "" header ${header}) 
+    STRING(REGEX REPLACE "${path_name}" "" header ${header})
     LIST(APPEND list_name_ ${header})
   ENDFOREACH(header ${list_name_})
   SET(${dest_list} ${list_name_} PARENT_SCOPE)
@@ -57,27 +57,27 @@ ENDFOREACH(dep ${PKG_CONFIG_PYWRAP_REQUIRES})
 SET(${PYWRAP}_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/${PYTHON_SITELIB}/${PROJECT_NAME})
 
 FILE(GLOB_RECURSE ${PROJECT_NAME}_PYTHON_HEADERS
-     ${CMAKE_CURRENT_SOURCE_DIR}/constraint/*.hpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/contacts/*.hpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/formulations/*.hpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/robots/*.hpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/solvers/*.hpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/tasks/*.hpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/trajectories/*.hpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/utils/*.hpp 
-     ) 
+     ${CMAKE_CURRENT_SOURCE_DIR}/constraint/*.hpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/contacts/*.hpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/formulations/*.hpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/robots/*.hpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/solvers/*.hpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/tasks/*.hpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/trajectories/*.hpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/utils/*.hpp
+     )
 
 FILE(GLOB_RECURSE ${PROJECT_NAME}_PYTHON_SOURCES
-     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/constraint/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/contacts/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/formulations/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/robots/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/solvers/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/tasks/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/trajectories/*.cpp 
-     ${CMAKE_CURRENT_SOURCE_DIR}/utils/*.cpp 
-     ) 
+     ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/constraint/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/contacts/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/formulations/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/robots/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/solvers/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/tasks/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/trajectories/*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/utils/*.cpp
+     )
 
 REMOVE_PATH_FROM_LIST("${${PROJECT_NAME}_PYTHON_HEADERS}" "${CMAKE_CURRENT_SOURCE_DIR}/" ${PROJECT_NAME}_PYTHON_HEADERS)
 REMOVE_PATH_FROM_LIST("${${PROJECT_NAME}_PYTHON_SOURCES}" "${CMAKE_CURRENT_SOURCE_DIR}/" ${PROJECT_NAME}_PYTHON_SOURCES)
@@ -112,6 +112,7 @@ ADD_HEADER_GROUP(${PYWRAP}_HEADERS)
 ADD_SOURCE_GROUP(${PYWRAP}_SOURCES)
 PKG_CONFIG_USE_DEPENDENCY(${PYWRAP} eigenpy)
 PKG_CONFIG_USE_DEPENDENCY(${PYWRAP} pinocchio)
+PKG_CONFIG_USE_DEPENDENCY(${PYWRAP} soth)
 
 TARGET_LINK_LIBRARIES(${PYWRAP} ${PROJECT_NAME})
 TARGET_LINK_BOOST_PYTHON(${PYWRAP})
@@ -126,7 +127,7 @@ SET_TARGET_PROPERTIES(${PYWRAP} PROPERTIES
 
 INSTALL(TARGETS ${PYWRAP} DESTINATION ${${PYWRAP}_INSTALL_DIR})
 
-# --- INSTALL SCRIPTS 
+# --- INSTALL SCRIPTS
 SET(PYTHON_FILES
   __init__.py
   )
