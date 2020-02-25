@@ -44,8 +44,8 @@ int main()
 
   int p = 2;
   int n = 5;
-  int nin = 0;
-  int neq = n;
+  int nin = n;
+  int neq = 0;
   SolverHQPBase * solver_fast = SolverHQPFactory::createNewSolver(SOLVER_HQP_EIQUADPROG_FAST,
                                                                   "eiquadprog_fast");
   std::cout<<"unittest create new solver"<<std::endl;
@@ -64,24 +64,13 @@ int main()
   Vector x(n);
 
   Matrix A_in = Matrix::Identity(nin, n);
-  Vector A_lb = Vector::Random(nin);
-  Vector A_ub = Vector::Random(nin);
-  Vector constrVal = A_in*x;
-  for(unsigned int i=0; i<nin; i++)
-  {
-      if(constrVal[i]>A_ub[i])
-      {
-//        std::cout<<"Inequality constraint "<<i<<" active at first iteration. UB="<<A_ub[i]<<", value="<<constrVal[i]<<endl;
-        A_ub[i] = constrVal[i];
-      }
-      if(constrVal[i]<A_lb[i])
-      {
-//        std::cout<<"Inequality constraint "<<i<<" active at first iteration. LB="<<A_lb[i]<<", value="<<constrVal[i]<<endl;
-        A_lb[i] = constrVal[i];
-      }
-  }
+  Vector A_lb = Vector::Constant(nin,1.);
+  Vector A_ub = Vector::Constant(nin,2.);
   ConstraintInequality in_constraint("in1", A_in, A_lb, A_ub);
   HQPData[0].push_back(make_pair<double, ConstraintBase*>(1.0, &in_constraint));
+  std::cout<<"constraint data A_in:\n"<<A_in<<std::endl;
+  std::cout<<"constraint data A_lb:\n"<<A_lb<<std::endl;
+  std::cout<<"constraint data A_ub:\n"<<A_ub<<std::endl;
 
   Matrix A_eq = Matrix::Identity(neq, n);
   Vector b_eq = 1.5*Vector::Ones(neq);
@@ -93,6 +82,7 @@ int main()
   const HQPOutput & output = solver_fast->solve(HQPData);
   std::cout << "solution: " << output.x.transpose() << std::endl;
   std::vector<Eigen::MatrixXd> lambda = static_cast<SolverHQuadProgFast*>(solver_fast)->getLagrangeMultipliers();
+  std::vector<soth::cstref_vector_t> activeSet = static_cast<SolverHQuadProgFast*>(solver_fast)->getActiveSet();
   std::vector<Eigen::VectorXd> slack;
   slack.resize(p);
   int l = 0;
@@ -102,6 +92,10 @@ int main()
       slack[l] = lam.col(l);
       l += 1;
   }
+  std::cout<<"slack:\n"<<output.m_slack<<std::endl;
+  for (const auto& as : activeSet)
+      for (const auto& c : as)
+      std::cout<<"active set:\n"<<c.type<<std::endl;
 
   b_eq = 2.5*Vector::Ones(neq);
   eq_constraint = ConstraintEquality("eq1", A_eq, b_eq);
@@ -116,6 +110,6 @@ int main()
   for (const auto& lam : lambda)
       std::cout<<"lagrange multipliers:\n"<<lam<<std::endl;
 
-  std::vector<soth::cstref_vector_t> activeSet = static_cast<SolverHQuadProgFast*>(solver_fast)->getActiveSet();
+  activeSet = static_cast<SolverHQuadProgFast*>(solver_fast)->getActiveSet();
 
 }

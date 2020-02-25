@@ -75,11 +75,11 @@ namespace tsid
       if (p > 0)
       {
         m_n = problemData[0][0].second->cols();
+        resize(0,0,0);
       }
       else
           return m_output;
 
-      resize(0,0,0);
 
       int l=0;
       for (const auto & cl : problemData)
@@ -93,8 +93,6 @@ namespace tsid
           else
             hLvl[l].m_nin += constr->rows();
         }
-        // If necessary, resize the constraint matrices
-        // resize(1,1,1);
 
         J[l].resize(hLvl[l].m_neq + hLvl[l].m_nin,m_n);
         b[l].resize(hLvl[l].m_neq + hLvl[l].m_nin);
@@ -108,7 +106,7 @@ namespace tsid
             J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][i_eq+c] = soth::Bound(constr->vector()[c],constr->vector()[c]);
+                b[l][i_eq+c] = soth::Bound(constr->vector()[c],constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
             }
             i_eq += constr->rows();
           }
@@ -132,16 +130,46 @@ namespace tsid
           }
         }
 
+        // std::cout << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        // std::cout << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+
         hcod.pushBackStage(J[l],b[l]);
         l += 1;
       }
 
+      // resize output
+      m_output.resize(m_n, hLvl[0].m_neq, 2*hLvl[0].m_nin);
 
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
 
-      // TODO: get lagrange multipliers / slack
+      /* assign rest of m_output */
+      // m_output.lambda = hcod.getLagrangeMultipliers();
+      // . TODO
+      // store active set in output
+      int cr=0, actIneqCtr=0;
+      m_output.activeSet.resize(hLvl[0].m_nin);
+      m_output.activeSetPy.resize(hLvl[0].m_nin);
+      for(ConstraintLevel::const_iterator it=problemData[0].begin(); it!=problemData[0].end(); it++)
+      {
+        const ConstraintBase* constr = it->second;
+        for (int cr=0;cr<constr->rows();cr++)
+        {
+            if (activeSet[0][cr].type > 0)
+            {
+                if(constr->isInequality() || constr->isBound())
+                {
+                  m_output.activeSet(actIneqCtr) = activeSet[0][cr].type;
+                  m_output.activeSetPy(actIneqCtr) = activeSet[0][cr].type;
+                  actIneqCtr++;
+                }
+            }
+        }
+        cr += constr->rows();
+      }
+
+      compute_slack(problemData, m_output);
 
       return m_output;
     }
@@ -194,6 +222,8 @@ namespace tsid
       // continue active search with 1 iteration
       hcod.activeSearch_cont(m_output.x,1);
 
+      compute_slack(problemData, m_output);
+
       return m_output;
 
     }
@@ -210,6 +240,12 @@ namespace tsid
 
     void SolverHQuadProgFast::compute_slack(const HQPData & problemData, 
                                             HQPOutput & problemOutput) {
+      const ConstraintLevel & cl0 = problemData[0];
+      const Vector & x = problemOutput.x;
+      problemOutput.m_slack.resize(p);
+      for (int l=0;l<p;l++) {
+        problemOutput.m_slack[l] = hcod.getLagrangeMultipliers()[l].col(l).norm();
+      }
     }
 
     const HQPOutput & SolverHQuadProgFast::solve_local(const HQPData & problemData,
