@@ -51,7 +51,10 @@ namespace tsid
        */
       /** set the initial active set for warm start
        */
-      const HQPOutput & setInitialActiveSet(const HQPData & problemData);
+      void setInitialActiveSet(const std::vector<soth::cstref_vector_t> & activeSetIn);
+      /** get the active set
+       */
+      const std::vector<soth::cstref_vector_t> getActiveSet();
       /** Resolve the given Hierarchical Quadratic Program with changed right hand side
        */
       const HQPOutput & resolve(const HQPData & problemData);

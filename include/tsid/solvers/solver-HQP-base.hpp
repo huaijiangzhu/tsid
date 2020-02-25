@@ -55,11 +55,6 @@ namespace tsid
        */
       virtual const HQPOutput & solve(const HQPData & problemData) = 0;
 
-      /** kai hack
-       */ 
-      virtual const HQPOutput & resolve(const HQPData & problemData) = 0;
-      virtual const std::vector<Eigen::MatrixXd>& getLagrangeMultipliers() = 0;
-
       /** Get the objective value of the last solved problem. */
       virtual double getObjectiveValue() = 0;
 

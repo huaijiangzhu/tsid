@@ -62,9 +62,13 @@ ADD_TEST_CFLAGS(tasks '-DTSID_SOURCE_DIR=\\\"${${PROJECT_NAME}_SOURCE_DIR}\\\"')
 ADD_TESTCASE(contacts "eigen3;pinocchio")
 ADD_TEST_CFLAGS(contacts '-DTSID_SOURCE_DIR=\\\"${${PROJECT_NAME}_SOURCE_DIR}\\\"')
 
-#ADD_TESTCASE(tsid-formulation "eigen3;pinocchio")
-#ADD_TEST_CFLAGS(tsid-formulation '-DTSID_SOURCE_DIR=\\\"${${PROJECT_NAME}_SOURCE_DIR}\\\"')
+ADD_TESTCASE(tsid-formulation "eigen3;pinocchio")
+ADD_TEST_CFLAGS(tsid-formulation '-DTSID_SOURCE_DIR=\\\"${${PROJECT_NAME}_SOURCE_DIR}\\\"')
 
 ADD_TESTCASE(math_utils "eigen3;pinocchio")
 ADD_TESTCASE(hqp_solvers "eigen3;pinocchio")
+
 ADD_TESTCASE(hcod_solvers "eigen3;pinocchio;soth")
+
+ADD_TESTCASE(hcod_robot_test "eigen3;pinocchio;soth")
+ADD_TEST_CFLAGS(hcod_robot_test '-DTSID_SOURCE_DIR=\\\"${${PROJECT_NAME}_SOURCE_DIR}\\\"')

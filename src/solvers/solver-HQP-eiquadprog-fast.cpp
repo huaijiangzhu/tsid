@@ -55,6 +55,13 @@ namespace tsid
       J.resize(p);
       b.resize(p);
     }
+
+    void SolverHQuadProgFast::setInitialActiveSet(const std::vector<soth::cstref_vector_t> & activeSetIn) {
+    }
+
+    const std::vector<soth::cstref_vector_t> SolverHQuadProgFast::getActiveSet() {
+        return activeSet;
+    }
     
     const HQPOutput & SolverHQuadProgFast::solve(const HQPData & problemData)
     {

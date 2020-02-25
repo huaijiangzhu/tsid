@@ -288,12 +288,6 @@ const HQPOutput & SolverHQuadProg::solve(const HQPData & problemData)
   return m_output;
 }
 
-const HQPOutput & SolverHQuadProg::resolve(const HQPData & problemData) {
-}
-
-const std::vector<Eigen::MatrixXd>& SolverHQuadProg::getLagrangeMultipliers() {
-}
-
 double SolverHQuadProg::getObjectiveValue()
 {
   return m_objValue;

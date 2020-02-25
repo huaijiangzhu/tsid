@@ -46,7 +46,6 @@ using namespace tsid::solvers;
 using namespace tsid::robots;
 using namespace std;
 
-
 #define REQUIRE_FINITE(A) BOOST_REQUIRE_MESSAGE(isFinite(A), #A<<": "<<A)
 #define CHECK_LESS_THAN(A,B) BOOST_CHECK_MESSAGE(A<B, #A<<": "<<A<<">"<<B)
 
@@ -203,7 +202,9 @@ BOOST_AUTO_TEST_CASE ( test_invdyn_formulation_acc_force_remove_contact )
   const double w_RF = 1e3;
   double t = 0.0;
 
+  std::cout<<"create invdyndata"<<std::endl;
   StandardRomeoInvDynCtrl romeo_inv_dyn(dt);
+  std::cout<<"create invdyndata end"<<std::endl;
   RobotWrapper & robot = *(romeo_inv_dyn.robot);
   InverseDynamicsFormulationAccForce * tsid = romeo_inv_dyn.tsid;
   Contact6d & contactRF = *(romeo_inv_dyn.contactRF);

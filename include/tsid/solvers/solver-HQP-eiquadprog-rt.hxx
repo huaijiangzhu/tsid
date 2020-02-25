@@ -230,16 +230,6 @@ namespace tsid
     }
 
     template<int nVars, int nEqCon, int nIneqCon>
-    const HQPOutput & SolverHQuadProgRT<nVars, nEqCon, nIneqCon>::resolve(const HQPData & problemData)
-    {
-    }
-
-    template<int nVars, int nEqCon, int nIneqCon>
-    const std::vector<Eigen::MatrixXd>& SolverHQuadProgRT<nVars, nEqCon, nIneqCon>::getLagrangeMultipliers()
-    {
-    }
-    
-    template<int nVars, int nEqCon, int nIneqCon>
     double SolverHQuadProgRT<nVars, nEqCon, nIneqCon>::getObjectiveValue()
     {
       return m_solver.getObjValue();

@@ -46,8 +46,6 @@ namespace tsid
       /** Solve the given Hierarchical Quadratic Program
        */
       const HQPOutput & solve(const HQPData & problemData);
-      const HQPOutput & resolve(const HQPData & problemData);
-      const std::vector<Eigen::MatrixXd>& getLagrangeMultipliers();
 
       /** Get the objective value of the last solved problem. */
       double getObjectiveValue();

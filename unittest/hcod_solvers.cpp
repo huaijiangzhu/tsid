@@ -17,11 +17,9 @@
 
 #include <iostream>
 
-// #include <boost/test/unit_test.hpp>
-// #include <boost/utility/binary.hpp>
-
 #include <tsid/solvers/solver-HQP-factory.hxx>
 #include <tsid/solvers/solver-HQP-eiquadprog.hpp>
+#include <tsid/solvers/solver-HQP-eiquadprog-fast.hpp>
 #include <tsid/solvers/solver-HQP-eiquadprog-rt.hpp>
 #include <tsid/math/utils.hpp>
 #include <tsid/math/constraint-equality.hpp>
@@ -33,13 +31,10 @@
 #define CHECK_LESS_THAN(A,B) BOOST_CHECK_MESSAGE(A<B, #A<<": "<<A<<">"<<B)
 #define REQUIRE_FINITE(A) BOOST_REQUIRE_MESSAGE(isFinite(A), #A<<": "<<A)
 
-// BOOST_AUTO_TEST_SUITE ( BOOST_TEST_MODULE )
-
 #define PROFILE_EIQUADPROG "Eiquadprog"
 #define PROFILE_EIQUADPROG_RT "Eiquadprog Real Time"
 #define PROFILE_EIQUADPROG_FAST "Eiquadprog Fast"
 
-//BOOST_AUTO_TEST_CASE ( test_eiquadprog_classic_vs_rt_vs_fast)
 int main()
 {
   std::cout << "test_HCOD\n";
@@ -47,6 +42,7 @@ int main()
   using namespace math;
   using namespace solvers;
 
+  int p = 2;
   int n = 5;
   int nin = 0;
   int neq = n;
@@ -56,7 +52,7 @@ int main()
   solver_fast->resize(n, neq, nin);
 
   // CREATE PROBLEM DATA
-  HQPData HQPData(2);
+  HQPData HQPData(p);
 
   Matrix A1 = Matrix::Identity(n, n);
   Vector b1 = Vector::Zero(n);
@@ -96,9 +92,16 @@ int main()
 
   const HQPOutput & output = solver_fast->solve(HQPData);
   std::cout << "solution: " << output.x.transpose() << std::endl;
-  std::vector<Matrix> lambda = solver_fast->getLagrangeMultipliers();
+  std::vector<Eigen::MatrixXd> lambda = static_cast<SolverHQuadProgFast*>(solver_fast)->getLagrangeMultipliers();
+  std::vector<Eigen::VectorXd> slack;
+  slack.resize(p);
+  int l = 0;
   for (const auto& lam : lambda)
+  {
       std::cout<<"lagrange multipliers:\n"<<lam<<std::endl;
+      slack[l] = lam.col(l);
+      l += 1;
+  }
 
   b_eq = 2.5*Vector::Ones(neq);
   eq_constraint = ConstraintEquality("eq1", A_eq, b_eq);
@@ -107,20 +110,12 @@ int main()
   std::cout<<"constraint data A:\n"<<A_eq<<std::endl;
   std::cout<<"constraint data b:\n"<<b_eq<<std::endl;
 
-  const HQPOutput & output2 = solver_fast->resolve(HQPData);
+  const HQPOutput & output2 = static_cast<SolverHQuadProgFast*>(solver_fast)->resolve(HQPData);
   std::cout << "solution: " << output2.x.transpose() << std::endl;
-  lambda = solver_fast->getLagrangeMultipliers();
+  lambda = static_cast<SolverHQuadProgFast*>(solver_fast)->getLagrangeMultipliers();
   for (const auto& lam : lambda)
       std::cout<<"lagrange multipliers:\n"<<lam<<std::endl;
 
-  // BOOST_REQUIRE_MESSAGE(true,
-  //                       " Status FAST "+SolverHQPBase::HQP_status_string[output.status]);
+  std::vector<soth::cstref_vector_t> activeSet = static_cast<SolverHQuadProgFast*>(solver_fast)->getActiveSet();
 
-  // std::cout<<"\n### TEST FINISHED ###\n";
-  // getProfiler().report_all(3, std::cout);
-  // getStatistics().report_all(1, std::cout);
 }
-
-
-
-// BOOST_AUTO_TEST_SUITE_END ()
