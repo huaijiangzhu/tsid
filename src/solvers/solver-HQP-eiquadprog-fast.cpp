@@ -163,8 +163,8 @@ namespace tsid
           }
         }
 
-        // std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
-        // std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+        std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
 
         if (coldStart) {
             hcod.pushBackStage(J[l],b[l]);
@@ -180,7 +180,7 @@ namespace tsid
       m_output.resize(m_n, hLvl[0].m_neq, 2*hLvl[0].m_nin);
 
       /* solve HCOD */
-      std::cerr<<"active search"<<std::endl;
+      // std::cerr<<"active search"<<std::endl;
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
       std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
