@@ -54,6 +54,9 @@ namespace tsid
         .def("solve", &SolverHQuadProgPythonVisitor::solver_helper, bp::args("HQPData for Python"))
         .def("solve_local", &SolverHQuadProgPythonVisitor::solve_local_helper, bp::args("HQPData for Python","previousOutput"))
         .def("compute_slack", &SolverHQuadProgPythonVisitor::compute_slack_helper, bp::args("HQPData for Python","problemOutput"))
+        .def("initializeSolver", &SolverHQuadProgPythonVisitor::initializeSolver_helper, bp::args("HQPData for Python"))
+        .def("reinitializeSolver", &SolverHQuadProgPythonVisitor::reinitializeSolver, bp::args("HQPData for Python"))
+        .def("setInitialActiveSet", &SolverHQuadProgPythonVisitor::setInitialActiveSet, bp::args("initialActiveSet"))
         ;
       }
        
@@ -88,6 +91,19 @@ namespace tsid
           solvers::HQPOutput output;
           solvers::HQPData data = HQPDatas.get();
           self.compute_slack(data, problemOutput);
+      }
+      static void initializeSolver(Solver & self, solvers::HQPData & problemData){
+          self.initializeSolver(problemData);
+      }
+      static void initializeSolver_helper(Solver & self, HQPDatas & HQPDatas){
+          solvers::HQPData data = HQPDatas.get();
+          self.initializeSolver(data);
+      }
+      static void reinitializeSolver(Solver & self){
+          self.reinitializeSolver();
+      }
+      static void setInitialActiveSet(Solver & self, const std::vector<soth::cstref_vector_t> & activeSetIn){
+          self.setInitialActiveSet(activeSetIn);
       }
       static solvers::HQPOutput solver_helper(Solver & self, HQPDatas & HQPDatas){
           solvers::HQPOutput output;

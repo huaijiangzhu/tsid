@@ -57,7 +57,8 @@ gui = cl.gui
 robot_display.initDisplay(loadModel=True)
 
 #q = se3.getNeutralConfigurationFromSrdf(robot.model(), srdf, False)
-q = robot_display.model.neutralConfiguration #matlib.zeros(robot.nq).T
+# q = robot_display.model.neutralConfiguration #matlib.zeros(robot.nq).T
+q = matlib.zeros(robot.nq).T
 q[2] += 0.5
 for i in range(4):
   q[7 + 2*i] = -0.8

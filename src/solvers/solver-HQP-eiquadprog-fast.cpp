@@ -46,27 +46,10 @@ namespace tsid
 
     void SolverHQuadProgFast::resize(unsigned int n, unsigned int neq, unsigned int nin)
     {
-      // FIXME: make hcod restartable
-      hcod = soth::HCOD(m_n,p);
-      hcod.setNameByOrder("stage_");
-      hcod.useDamp(false);
-      hcod.setInitialActiveSet(activeSet);
-      hLvl.resize(p);
-      J.resize(p);
-      b.resize(p);
     }
 
-    void SolverHQuadProgFast::setInitialActiveSet(const std::vector<soth::cstref_vector_t> & activeSetIn) {
-    }
-
-    const std::vector<soth::cstref_vector_t> SolverHQuadProgFast::getActiveSet() {
-        return activeSet;
-    }
-    
-    const HQPOutput & SolverHQuadProgFast::solve(const HQPData & problemData)
+    void SolverHQuadProgFast::initializeSolver(const HQPData & problemData)
     {
-      START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
-
       // assign the constraint matrices
       /* SOTH resize */
       p = problemData.size();
@@ -75,15 +58,22 @@ namespace tsid
       if (p > 0)
       {
         m_n = problemData[0][0].second->cols();
-        resize(0,0,0);
+      	hcod = soth::HCOD(m_n,p);
+      	hcod.setNameByOrder("stage_");
+      	hcod.useDamp(false);
+      	hcod.setInitialActiveSet(activeSet);
+      	hLvl.resize(p);
+      	J.resize(p);
+      	b.resize(p);
       }
       else
-          return m_output;
-
+	return;
 
       int l=0;
       for (const auto & cl : problemData)
       {
+	hLvl[l].m_neq = 0;
+	hLvl[l].m_nin = 0;
         for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
           const ConstraintBase* constr = it->second;
@@ -97,6 +87,35 @@ namespace tsid
         J[l].resize(hLvl[l].m_neq + hLvl[l].m_nin,m_n);
         b[l].resize(hLvl[l].m_neq + hLvl[l].m_nin);
 
+        l += 1;
+      }
+    }
+
+    void SolverHQuadProgFast::reinitializeSolver()
+    {
+	hcod.reset();
+    }
+
+    void SolverHQuadProgFast::setInitialActiveSet(const std::vector<soth::cstref_vector_t> & activeSetIn) {
+    }
+
+    const std::vector<soth::cstref_vector_t> SolverHQuadProgFast::getActiveSet() {
+        return activeSet;
+    }
+    
+    const HQPOutput & SolverHQuadProgFast::solve(const HQPData & problemData)
+    {
+      START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
+ 
+      // FIXME: implement proper warm start
+      hcod = soth::HCOD(m_n,p);
+      hcod.setNameByOrder("stage_");
+      hcod.useDamp(false);
+      hcod.setInitialActiveSet(activeSet);
+
+      int l=0;
+      for (const auto & cl : problemData)
+      {
         int i_eq=0, i_in=0;
         for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
@@ -106,7 +125,7 @@ namespace tsid
             J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][i_eq+c] = soth::Bound(constr->vector()[c],constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
+                b[l][i_eq+c] = soth::Bound(constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
             }
             i_eq += constr->rows();
           }
@@ -130,8 +149,8 @@ namespace tsid
           }
         }
 
-        // std::cout << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
-        // std::cout << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+        std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
 
         hcod.pushBackStage(J[l],b[l]);
         l += 1;

@@ -43,6 +43,8 @@ namespace tsid
       SolverHQuadProgFast(const std::string & name);
 
       void resize(unsigned int n, unsigned int neq, unsigned int nin);
+      void initializeSolver(const HQPData & problemData);
+      void reinitializeSolver();
 
       /** Solve the given Hierarchical Quadratic Program
        */
