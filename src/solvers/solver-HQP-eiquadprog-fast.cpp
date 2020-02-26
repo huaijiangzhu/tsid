@@ -51,29 +51,30 @@ namespace tsid
     void SolverHQuadProgFast::initializeSolver(const HQPData & problemData)
     {
       // assign the constraint matrices
+      bool dimChange = false;
       /* SOTH resize */
+      // FIXME: case of change of hierarchy levels
       p = problemData.size();
+      assert(p > 0 && "ERROR: the task hierarchy is empty");
 
-      // number of variables
-      if (p > 0)
-      {
-        m_n = problemData[0][0].second->cols();
-      	hcod = soth::HCOD(m_n,p);
-      	hcod.setNameByOrder("stage_");
-      	hcod.useDamp(false);
-      	hcod.setInitialActiveSet(activeSet);
+      if (coldStart) {
       	hLvl.resize(p);
       	J.resize(p);
       	b.resize(p);
       }
-      else
-	return;
+
+      if (m_n != problemData[0][0].second->cols()) {
+        dimChange = true;
+        m_n = problemData[0][0].second->cols();
+      }
 
       int l=0;
       for (const auto & cl : problemData)
       {
-	hLvl[l].m_neq = 0;
-	hLvl[l].m_nin = 0;
+	    unsigned int hLvllm_neq_prev = hLvl[l].m_neq;
+	    unsigned int hLvllm_nin_prev = hLvl[l].m_nin;
+        hLvl[l].m_neq = 0;
+        hLvl[l].m_nin = 0;
         for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
           const ConstraintBase* constr = it->second;
@@ -84,16 +85,32 @@ namespace tsid
             hLvl[l].m_nin += constr->rows();
         }
 
-        J[l].resize(hLvl[l].m_neq + hLvl[l].m_nin,m_n);
-        b[l].resize(hLvl[l].m_neq + hLvl[l].m_nin);
+        if (hLvllm_neq_prev != hLvl[l].m_neq ||
+	        hLvllm_nin_prev != hLvl[l].m_nin) {
+            dimChange = true;
+            J[l].resize(hLvl[l].m_neq + hLvl[l].m_nin,m_n);
+            b[l].resize(hLvl[l].m_neq + hLvl[l].m_nin);
+        }
 
         l += 1;
       }
+
+      // number of variables
+      if (coldStart || dimChange)
+      {
+        coldStart = true; // in case that coldStart = false and dimChange = true
+      	hcod = soth::HCOD(m_n,p);
+      	hcod.setNameByOrder("stage_");
+      	hcod.useDamp(false);
+      	hcod.setInitialActiveSet(activeSet);
+      }
+      else
+	    reinitializeSolver();
     }
 
     void SolverHQuadProgFast::reinitializeSolver()
     {
-	hcod.reset();
+	    hcod.reset();
     }
 
     void SolverHQuadProgFast::setInitialActiveSet(const std::vector<soth::cstref_vector_t> & activeSetIn) {
@@ -106,13 +123,9 @@ namespace tsid
     const HQPOutput & SolverHQuadProgFast::solve(const HQPData & problemData)
     {
       START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
- 
-      // FIXME: implement proper warm start
-      hcod = soth::HCOD(m_n,p);
-      hcod.setNameByOrder("stage_");
-      hcod.useDamp(false);
-      hcod.setInitialActiveSet(activeSet);
 
+      initializeSolver(problemData);
+ 
       int l=0;
       for (const auto & cl : problemData)
       {
@@ -149,12 +162,18 @@ namespace tsid
           }
         }
 
-        std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
-        std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+        // std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        // std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
 
-        hcod.pushBackStage(J[l],b[l]);
+        if (coldStart) {
+            hcod.pushBackStage(J[l],b[l]);
+        } else
+            hcod.resetStage(J[l],b[l],l);
         l += 1;
       }
+
+      if (coldStart)
+        coldStart = false;
 
       // resize output
       m_output.resize(m_n, hLvl[0].m_neq, 2*hLvl[0].m_nin);
@@ -162,6 +181,7 @@ namespace tsid
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
+      std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* assign rest of m_output */
       // m_output.lambda = hcod.getLagrangeMultipliers();
@@ -188,7 +208,7 @@ namespace tsid
         cr += constr->rows();
       }
 
-      compute_slack(problemData, m_output);
+      // compute_slack(problemData, m_output);
 
       return m_output;
     }
@@ -241,14 +261,15 @@ namespace tsid
       // continue active search with 1 iteration
       hcod.activeSearch_cont(m_output.x,1);
 
-      compute_slack(problemData, m_output);
+      // compute_slack(problemData, m_output);
 
       return m_output;
 
     }
 
     const std::vector<Eigen::MatrixXd>& SolverHQuadProgFast::getLagrangeMultipliers() {
-        return hcod.getLagrangeMultipliers();
+        return lambda;
+        // return hcod.getLagrangeMultipliers();
     }
     
     bool SolverHQuadProgFast::setMaximumIterations(unsigned int maxIter)

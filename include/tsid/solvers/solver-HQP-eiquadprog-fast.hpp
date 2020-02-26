@@ -109,6 +109,9 @@ namespace tsid
       };
       std::vector<level> hLvl;
       std::vector<soth::cstref_vector_t> activeSet;
+      std::vector<Eigen::MatrixXd> lambda;
+
+      bool coldStart = true;
 
     };
   }
