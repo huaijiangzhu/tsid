@@ -124,6 +124,7 @@ namespace tsid
     {
       START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
 
+      coldStart = true;
       initializeSolver(problemData);
  
       int l=0;
@@ -179,9 +180,10 @@ namespace tsid
       m_output.resize(m_n, hLvl[0].m_neq, 2*hLvl[0].m_nin);
 
       /* solve HCOD */
+      std::cerr<<"active search"<<std::endl;
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
-      // std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
+      std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* assign rest of m_output */
       // m_output.lambda = hcod.getLagrangeMultipliers();
