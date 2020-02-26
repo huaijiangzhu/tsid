@@ -181,7 +181,7 @@ namespace tsid
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
-      std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
+      // std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* assign rest of m_output */
       // m_output.lambda = hcod.getLagrangeMultipliers();
@@ -208,7 +208,7 @@ namespace tsid
         cr += constr->rows();
       }
 
-      // compute_slack(problemData, m_output);
+      compute_slack(problemData, m_output);
 
       return m_output;
     }
@@ -260,8 +260,19 @@ namespace tsid
       hcod.resetBounds(b);
       // continue active search with 1 iteration
       hcod.activeSearch_cont(m_output.x,1);
+      // std::cout<<"solution: "<<m_output.x.transpose()<<std::endl;
 
-      // compute_slack(problemData, m_output);
+      compute_slack(problemData, m_output);
+
+      // std::cerr<<"recomputeSlack level 0"<<std::endl;
+      // Eigen::VectorXd lhs = J[0]*m_output.x;
+      // for (int c=0;c<hLvl[0].m_neq+hLvl[0].m_nin;c++)
+      //   std::cerr<<b[0][c].distance(lhs[c])<<std::endl;
+
+      // std::cerr<<"recomputeSlack level 1"<<std::endl;
+      // Eigen::VectorXd lhs2 = J[1]*m_output.x;
+      // for (int c=0;c<hLvl[1].m_neq+hLvl[1].m_nin;c++)
+      //   std::cerr<<b[1][c].distance(lhs[c])<<std::endl;
 
       return m_output;
 
@@ -280,10 +291,9 @@ namespace tsid
 
     void SolverHQuadProgFast::compute_slack(const HQPData & problemData, 
                                             HQPOutput & problemOutput) {
-      const ConstraintLevel & cl0 = problemData[0];
-      const Vector & x = problemOutput.x;
       problemOutput.m_slack.resize(p);
       for (int l=0;l<p;l++) {
+        // std::cerr<<"w["<<l<<"]:\n"<<hcod.getLagrangeMultipliers()[l]<<std::endl;
         problemOutput.m_slack[l] = hcod.getLagrangeMultipliers()[l].col(l).norm();
       }
     }
