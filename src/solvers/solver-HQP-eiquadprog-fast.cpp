@@ -123,7 +123,6 @@ namespace tsid
     {
       START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
 
-      coldStart = true;
       initializeSolver(problemData);
  
       int l=0;
@@ -132,45 +131,48 @@ namespace tsid
         int i_eq=0, i_in=0;
         for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
+          double weight = it->first;
           const ConstraintBase* constr = it->second;
           if(constr->isEquality())
           {
-            J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
-            if (l==0)
-            J[l].block(i_eq,0,constr->rows(),m_n).setZero();
+            J[l].block(i_eq,0,constr->rows(),m_n) = weight * constr->matrix();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][i_eq+c] = soth::Bound(constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
+                b[l][i_eq+c] = soth::Bound(weight * constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
             }
             i_eq += constr->rows();
           }
           else if(constr->isInequality())
           {
               
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = constr->matrix();
-            if (l==0)
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = weight * constr->matrix();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
+                if (std::abs(constr->lowerBound()[c] - constr->upperBound()[c]) < 1e-12)
+                    b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(weight * constr->lowerBound()[c]);
+                else
+                    b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(weight * constr->lowerBound()[c],weight * constr->upperBound()[c]);
             }
             i_in += constr->rows();
           }
           else if(constr->isBound())
           {
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setIdentity(); // FIXME: need to set the correct variable to 1
-            if (l==0)
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = weight * Eigen::MatrixXd::Identity(constr->rows(),m_n); // FIXME: need to set the correct variable to 1
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
+                if (std::abs(constr->lowerBound()[c] - constr->upperBound()[c]) < 1e-12)
+                    b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(weight * constr->lowerBound()[c]);
+                else
+                    b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(weight * constr->lowerBound()[c],weight * constr->upperBound()[c]);
             }
             i_in += constr->rows();
           }
         }
 
-        // std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
-        // std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+        // if (l==0) {
+        //     std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        //     std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+        // }
 
         if (coldStart) {
             hcod.pushBackStage(J[l],b[l]);
@@ -182,7 +184,7 @@ namespace tsid
       if (coldStart)
       {
       	hcod.setInitialActiveSet();
-        // coldStart = false;
+        coldStart = false;
       }
 
       // resize output
@@ -192,7 +194,7 @@ namespace tsid
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
       // std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
-      std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
+      // std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* assign rest of m_output */
       // m_output.lambda = hcod.getLagrangeMultipliers();
