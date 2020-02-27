@@ -81,6 +81,8 @@ find_package(catkin QUIET COMPONENTS pinocchio)
 
 ADD_REQUIRED_DEPENDENCY("pinocchio >= 2.0.0")
 
+#ADD_REQUIRED_DEPENDENCY(lexls)
+
 ADD_REQUIRED_DEPENDENCY(soth)
 
 SET(BOOST_REQUIERED_COMPONENTS filesystem system)

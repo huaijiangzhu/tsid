@@ -52,6 +52,7 @@ namespace tsid
 
     const TrajectorySample & TrajectoryEuclidianConstant::computeNext()
     {
+        // std::cerr<<"trajsample: "<<m_sample.pos.transpose()<<std::endl;
       return m_sample;
     }
 

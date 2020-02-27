@@ -136,6 +136,8 @@ namespace tsid
           if(constr->isEquality())
           {
             J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
+            if (l==0)
+            J[l].block(i_eq,0,constr->rows(),m_n).setZero();
             for (int c=0;c<constr->rows();c++)
             {
                 b[l][i_eq+c] = soth::Bound(constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
@@ -144,7 +146,10 @@ namespace tsid
           }
           else if(constr->isInequality())
           {
+              
             J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = constr->matrix();
+            if (l==0)
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
             for (int c=0;c<constr->rows();c++)
             {
                 b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
@@ -154,6 +159,8 @@ namespace tsid
           else if(constr->isBound())
           {
             J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setIdentity(); // FIXME: need to set the correct variable to 1
+            if (l==0)
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
             for (int c=0;c<constr->rows();c++)
             {
                 b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
@@ -162,8 +169,8 @@ namespace tsid
           }
         }
 
-        std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
-        std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+        // std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        // std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
 
         if (coldStart) {
             hcod.pushBackStage(J[l],b[l]);
@@ -184,7 +191,7 @@ namespace tsid
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
-      std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
+      // std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
       std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* assign rest of m_output */
@@ -211,6 +218,65 @@ namespace tsid
         }
         cr += constr->rows();
       }
+
+      Vector x = m_output.x;
+
+      const ConstraintLevel & cl0 = problemData[0];
+      if(cl0.size()>0)
+      {
+        for(ConstraintLevel::const_iterator it=cl0.begin(); it!=cl0.end(); it++)
+        {
+          const ConstraintBase* constr = it->second;
+          if(constr->checkConstraint(x)==false)
+          {
+            m_output.status = HQP_STATUS_ERROR;
+            if(constr->isEquality())
+            {
+              sendMsg("Equality "+constr->name()+" violated: "+
+                      toString((constr->matrix()*x-constr->vector()).norm()));
+            }
+            else if(constr->isInequality())
+            {
+              sendMsg("Inequality "+constr->name()+" violated: "+
+                      toString((constr->matrix()*x-constr->lowerBound()).minCoeff())+"\n"+
+                      toString((constr->upperBound()-constr->matrix()*x).minCoeff()));
+            }
+            else if(constr->isBound())
+            {
+              sendMsg("Bound "+constr->name()+" violated: "+
+                      toString((x-constr->lowerBound()).minCoeff())+"\n"+
+                      toString((constr->upperBound()-x).minCoeff()));
+            }
+          }
+        }
+      }
+
+      // // solve with lexlsi
+      // std::vector<LexLS::Index> mr_Alu;
+      // std::vector<LexLS::Index> mr_lu;
+      // std::vector<LexLS::ObjectiveType> obj_type;
+      // obj_type.resize(p+1);
+      // mr_Alu.resize(p+1);
+      // mr_lu.resize(p+1);
+      // for (int l=0;l<p+1;l++) {
+      //     mr_Alu[l] = J[l].rows();
+      //     mr_lu[l] = 0;
+      //     obj_type[l] = LexLS::MIXED_OBJECTIVE;
+      // }
+      // mr_Alu[p] = m_n;
+      // mr_lu[p] = 0;
+      // LexLS::internal::LexLSI lexlsi(m_n, p, mr_Alu.data(), mr_lu.data(), obj_type.data()); 
+      // for (int l=0;l<p;l++) {
+      //     Eigen::MatrixXd In = Eigen::MatrixXd::Zero(J[l].rows(),J[l].cols()+2);
+      //     In.leftCols(m_n) = J[l];
+      //     for (int c=0;c<b[l].size();c++) {
+      //       In(c,m_n) = b[l][c].valInf;
+      //       In(c,m_n+1) = b[l][c].valSup;
+      //     }
+      //     lexlsi.setData(l,In);
+      // }
+      // lexlsi.solve(false,false);
+      // std::cout<<"lexlsi solution:\n"<<lexlsi.get_x().transpose()<<std::endl;
 
       compute_slack(problemData, m_output);
 

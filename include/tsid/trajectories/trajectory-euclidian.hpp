@@ -18,6 +18,8 @@
 #ifndef __invdyn_trajectory_euclidian_hpp__
 #define __invdyn_trajectory_euclidian_hpp__
 
+#include <iostream>
+
 #include <tsid/trajectories/trajectory-base.hpp>
 
 namespace tsid

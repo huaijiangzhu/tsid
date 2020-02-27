@@ -21,6 +21,7 @@
 #include "tsid/solvers/solver-HQP-base.hpp"
 #include "tsid/solvers/eiquadprog-fast.hpp"
 #include <soth/HCOD.hpp>
+// #include <lexls/lexlsi.h>
 
 namespace tsid
 {
