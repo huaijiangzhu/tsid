@@ -99,7 +99,7 @@ namespace tsid
       unsigned int m_nin;  /// number of inequality constraints
       unsigned int m_n;    /// number of variables
 
-      soth::HCOD hcod;
+      // soth::HCOD hcod;
       int p;
       std::vector<Matrix> J;
       std::vector<soth::VectorBound> b;

@@ -57,16 +57,11 @@ namespace tsid
       p = problemData.size();
       assert(p > 0 && "ERROR: the task hierarchy is empty");
 
-      if (coldStart) {
-      	hLvl.resize(p);
+     hLvl.resize(p);
       	J.resize(p);
       	b.resize(p);
-      }
 
-      if (m_n != problemData[0][0].second->cols()) {
-        dimChange = true;
         m_n = problemData[0][0].second->cols();
-      }
 
       int l=0;
       for (const auto & cl : problemData)
@@ -94,22 +89,11 @@ namespace tsid
 
         l += 1;
       }
-
-      // number of variables
-      if (coldStart || dimChange)
-      {
-        coldStart = true; // in case that coldStart = false and dimChange = true
-      	hcod = soth::HCOD(m_n,p);
-      	hcod.setNameByOrder("stage_");
-      	hcod.useDamp(false);
-      }
-      else
-	    reinitializeSolver();
     }
 
     void SolverHQuadProgFast::reinitializeSolver()
     {
-	    hcod.reset();
+	    // hcod.reset();
     }
 
     void SolverHQuadProgFast::setInitialActiveSet(const std::vector<soth::cstref_vector_t> & activeSetIn) {
@@ -123,8 +107,10 @@ namespace tsid
     {
       START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
 
-      coldStart = true;
       initializeSolver(problemData);
+      soth::HCOD hcod(m_n,p);
+      hcod.setNameByOrder("stage_");
+      hcod.useDamp(false);
  
       int l=0;
       for (const auto & cl : problemData)
@@ -136,8 +122,8 @@ namespace tsid
           if(constr->isEquality())
           {
             J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
-            if (l==0)
-            J[l].block(i_eq,0,constr->rows(),m_n).setZero();
+            // if (l==0)
+            // J[l].block(i_eq,0,constr->rows(),m_n).setZero();
             for (int c=0;c<constr->rows();c++)
             {
                 b[l][i_eq+c] = soth::Bound(constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
@@ -148,8 +134,8 @@ namespace tsid
           {
               
             J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = constr->matrix();
-            if (l==0)
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
+            // if (l==0)
+            // J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
             for (int c=0;c<constr->rows();c++)
             {
                 b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
@@ -159,8 +145,8 @@ namespace tsid
           else if(constr->isBound())
           {
             J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setIdentity(); // FIXME: need to set the correct variable to 1
-            if (l==0)
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
+            // if (l==0)
+            // J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
             for (int c=0;c<constr->rows();c++)
             {
                 b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
@@ -172,51 +158,32 @@ namespace tsid
         // std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
         // std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
 
-        if (coldStart) {
-            hcod.pushBackStage(J[l],b[l]);
-        } else
-            hcod.resetStage(J[l],b[l],l);
+        hcod.pushBackStage(J[l],b[l]);
         l += 1;
       }
 
-      if (coldStart)
-      {
-      	hcod.setInitialActiveSet();
-        // coldStart = false;
-      }
 
       // resize output
       m_output.resize(m_n, hLvl[0].m_neq, 2*hLvl[0].m_nin);
 
+      hcod.setInitialActiveSet();
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
       // std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
-      std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
+      // std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
-      /* assign rest of m_output */
-      // m_output.lambda = hcod.getLagrangeMultipliers();
-      // . TODO
-      // store active set in output
-      int cr=0, actIneqCtr=0;
-      m_output.activeSet.resize(hLvl[0].m_nin);
-      m_output.activeSetPy.resize(hLvl[0].m_nin);
-      for(ConstraintLevel::const_iterator it=problemData[0].begin(); it!=problemData[0].end(); it++)
+      /* compute slack */
+      for (int l=0;l<p;l++)
       {
-        const ConstraintBase* constr = it->second;
-        for (int cr=0;cr<constr->rows();cr++)
-        {
-            if (activeSet[0][cr].type > 0)
-            {
-                if(constr->isInequality() || constr->isBound())
-                {
-                  m_output.activeSet(actIneqCtr) = activeSet[0][cr].type;
-                  m_output.activeSetPy(actIneqCtr) = activeSet[0][cr].type;
-                  actIneqCtr++;
-                }
-            }
+        Eigen::VectorXd slack;
+        slack.resize(hLvl[l].m_neq + hLvl[l].m_nin);
+        for (int c=0;c<hLvl[l].m_neq + hLvl[l].m_nin;c++) {
+            double lhs = J[l].row(c)*m_output.x;
+            std::cout<<"b[l][c].valTwin: "<<b[l][c].valTwin<<std::endl;
+            slack[c] = lhs - b[l][c].valTwin;
         }
-        cr += constr->rows();
+        std::cout<<"slack level "<<l<<":\n"<<slack.transpose()<<std::endl; 
       }
 
       Vector x = m_output.x;
@@ -327,9 +294,9 @@ namespace tsid
       }
 
       // reset bounds and resolve
-      hcod.resetBounds(b);
+      // hcod.resetBounds(b);
       // continue active search with 1 iteration
-      hcod.activeSearch_cont(m_output.x,1);
+      // hcod.activeSearch_cont(m_output.x,1);
       // std::cout<<"solution: "<<m_output.x.transpose()<<std::endl;
 
       compute_slack(problemData, m_output);
@@ -364,7 +331,7 @@ namespace tsid
       problemOutput.m_slack.resize(p);
       for (int l=0;l<p;l++) {
         // std::cerr<<"w["<<l<<"]:\n"<<hcod.getLagrangeMultipliers()[l]<<std::endl;
-        problemOutput.m_slack[l] = hcod.getLagrangeMultipliers()[l].col(l).norm();
+        // problemOutput.m_slack[l] = hcod.getLagrangeMultipliers()[l].col(l).norm();
       }
     }
 
