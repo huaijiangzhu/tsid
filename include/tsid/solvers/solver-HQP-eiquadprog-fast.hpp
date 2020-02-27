@@ -21,7 +21,7 @@
 #include "tsid/solvers/solver-HQP-base.hpp"
 #include "tsid/solvers/eiquadprog-fast.hpp"
 #include <soth/HCOD.hpp>
-// #include <lexls/lexlsi.h>
+#include <lexls/lexlsi.h>
 
 namespace tsid
 {
@@ -111,6 +111,9 @@ namespace tsid
       std::vector<level> hLvl;
       std::vector<soth::cstref_vector_t> activeSet;
       std::vector<Eigen::MatrixXd> lambda;
+
+      // lexls
+      std::vector<Eigen::MatrixXd> A;
 
       bool coldStart = true;
 

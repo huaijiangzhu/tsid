@@ -60,6 +60,7 @@ namespace tsid
      hLvl.resize(p);
       	J.resize(p);
       	b.resize(p);
+      	A.resize(p+1);
 
         m_n = problemData[0][0].second->cols();
 
@@ -85,10 +86,14 @@ namespace tsid
             dimChange = true;
             J[l].resize(hLvl[l].m_neq + hLvl[l].m_nin,m_n);
             b[l].resize(hLvl[l].m_neq + hLvl[l].m_nin);
+            A[l].resize(hLvl[l].m_neq + hLvl[l].m_nin,m_n+2);
         }
 
         l += 1;
       }
+      A[p].resize(m_n,m_n+2);
+      A[p].leftCols(m_n).setIdentity();
+      A[p].rightCols(2).setZero();
     }
 
     void SolverHQuadProgFast::reinitializeSolver()
@@ -118,38 +123,45 @@ namespace tsid
         int i_eq=0, i_in=0;
         for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
         {
+          double weight = it->first;
+          std::cout<<"weight: "<<weight<<std::endl;
           const ConstraintBase* constr = it->second;
           if(constr->isEquality())
           {
-            J[l].block(i_eq,0,constr->rows(),m_n) = constr->matrix();
+            J[l].block(i_eq,0,constr->rows(),m_n) = weight * constr->matrix();
+            A[l].block(i_eq,0,constr->rows(),m_n) = weight * constr->matrix();
+            A[l].col(m_n).segment(i_eq,constr->rows()) = weight * constr->vector();
+            A[l].col(m_n+1).segment(i_eq,constr->rows()) = weight * constr->vector();
             // if (l==0)
             // J[l].block(i_eq,0,constr->rows(),m_n).setZero();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][i_eq+c] = soth::Bound(constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
+                b[l][i_eq+c] = soth::Bound(weight * constr->vector()[c]); // FIXME: double bound in order to get lagrange multipliers / slack for equality constraints
             }
             i_eq += constr->rows();
           }
           else if(constr->isInequality())
           {
               
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = constr->matrix();
-            // if (l==0)
-            // J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = weight * constr->matrix();
+            A[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = weight * constr->matrix();
+            A[l].col(m_n).segment(hLvl[l].m_neq+i_in,constr->rows()) = weight * constr->lowerBound();
+            A[l].col(m_n+1).segment(hLvl[l].m_neq+i_in,constr->rows()) = weight * constr->upperBound();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
+                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(weight * constr->lowerBound()[c],weight * constr->upperBound()[c]);
             }
             i_in += constr->rows();
           }
           else if(constr->isBound())
           {
-            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setIdentity(); // FIXME: need to set the correct variable to 1
-            // if (l==0)
-            // J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setZero();
+            J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) = weight * Eigen::MatrixXd::Identity(constr->rows(),m_n); // FIXME: need to set the correct variable to 1
+            A[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n).setIdentity();
+            A[l].col(m_n).segment(hLvl[l].m_neq+i_in,constr->rows()) = weight * constr->lowerBound();
+            A[l].col(m_n+1).segment(hLvl[l].m_neq+i_in,constr->rows()) = weight * constr->upperBound();
             for (int c=0;c<constr->rows();c++)
             {
-                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(constr->lowerBound()[c],constr->upperBound()[c]);
+                b[l][hLvl[l].m_neq+i_in+c] = soth::Bound(weight * constr->lowerBound()[c],weight * constr->upperBound()[c]);
             }
             i_in += constr->rows();
           }
@@ -170,7 +182,7 @@ namespace tsid
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
-      // std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
+      std::cerr<<"hcod solution:\n"<<m_output.x.transpose()<<std::endl;
       // std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* compute slack */
@@ -180,11 +192,46 @@ namespace tsid
         slack.resize(hLvl[l].m_neq + hLvl[l].m_nin);
         for (int c=0;c<hLvl[l].m_neq + hLvl[l].m_nin;c++) {
             double lhs = J[l].row(c)*m_output.x;
-            std::cout<<"b[l][c].valTwin: "<<b[l][c].valTwin<<std::endl;
             slack[c] = lhs - b[l][c].valTwin;
         }
-        std::cout<<"slack level "<<l<<":\n"<<slack.transpose()<<std::endl; 
+        std::cout<<"slack hcod level "<<l<<":\n"<<slack.transpose()<<std::endl; 
       }
+
+
+      // // solve with lexlsi
+      // std::vector<LexLS::Index> mr_Alu;
+      // std::vector<LexLS::Index> mr_lu;
+      // std::vector<LexLS::ObjectiveType> obj_type;
+      // obj_type.resize(p+1);
+      // mr_Alu.resize(p+1);
+      // mr_lu.resize(p+1);
+      // for (int l=0;l<p+1;l++) {
+      //     mr_Alu[l] = A[l].rows();
+      //     mr_lu[l] = 0;
+      //     obj_type[l] = LexLS::MIXED_OBJECTIVE;
+      // }
+      // mr_Alu[p] = m_n;
+      // mr_lu[p] = 0;
+      // LexLS::internal::LexLSI lexlsi(m_n, p+1, mr_Alu.data(), mr_lu.data(), obj_type.data()); 
+      // for (int l=0;l<p+1;l++) {
+      //     // std::cout<<"lexlsi set data:\n"<<A[l]<<std::endl;
+      //     lexlsi.setData(l,A[l]);
+      // }
+      // lexlsi.solve(false,false);
+      // std::cout<<"lexlsi solution:\n"<<lexlsi.get_x().transpose()<<std::endl;
+
+      // /* compute slack */
+      // for (int l=0;l<p;l++)
+      // {
+      //   Eigen::VectorXd slack;
+      //   slack.resize(hLvl[l].m_neq + hLvl[l].m_nin);
+      //   for (int c=0;c<hLvl[l].m_neq + hLvl[l].m_nin;c++) {
+      //       double lhs = J[l].row(c)*lexlsi.get_x();
+      //       slack[c] = lhs - b[l][c].valTwin;
+      //   }
+      //   std::cout<<"slack hcod level "<<l<<":\n"<<slack.transpose()<<std::endl; 
+      // }
+      // m_output.x = lexlsi.get_x();
 
       Vector x = m_output.x;
 
@@ -217,34 +264,6 @@ namespace tsid
           }
         }
       }
-
-      // // solve with lexlsi
-      // std::vector<LexLS::Index> mr_Alu;
-      // std::vector<LexLS::Index> mr_lu;
-      // std::vector<LexLS::ObjectiveType> obj_type;
-      // obj_type.resize(p+1);
-      // mr_Alu.resize(p+1);
-      // mr_lu.resize(p+1);
-      // for (int l=0;l<p+1;l++) {
-      //     mr_Alu[l] = J[l].rows();
-      //     mr_lu[l] = 0;
-      //     obj_type[l] = LexLS::MIXED_OBJECTIVE;
-      // }
-      // mr_Alu[p] = m_n;
-      // mr_lu[p] = 0;
-      // LexLS::internal::LexLSI lexlsi(m_n, p, mr_Alu.data(), mr_lu.data(), obj_type.data()); 
-      // for (int l=0;l<p;l++) {
-      //     Eigen::MatrixXd In = Eigen::MatrixXd::Zero(J[l].rows(),J[l].cols()+2);
-      //     In.leftCols(m_n) = J[l];
-      //     for (int c=0;c<b[l].size();c++) {
-      //       In(c,m_n) = b[l][c].valInf;
-      //       In(c,m_n+1) = b[l][c].valSup;
-      //     }
-      //     lexlsi.setData(l,In);
-      // }
-      // lexlsi.solve(false,false);
-      // std::cout<<"lexlsi solution:\n"<<lexlsi.get_x().transpose()<<std::endl;
-
       compute_slack(problemData, m_output);
 
       return m_output;
