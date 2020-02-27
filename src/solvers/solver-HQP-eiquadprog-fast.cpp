@@ -102,7 +102,6 @@ namespace tsid
       	hcod = soth::HCOD(m_n,p);
       	hcod.setNameByOrder("stage_");
       	hcod.useDamp(false);
-      	hcod.setInitialActiveSet(activeSet);
       }
       else
 	    reinitializeSolver();
@@ -163,8 +162,8 @@ namespace tsid
           }
         }
 
-        std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
-        std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
+        // std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        // std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
 
         if (coldStart) {
             hcod.pushBackStage(J[l],b[l]);
@@ -174,16 +173,19 @@ namespace tsid
       }
 
       if (coldStart)
-        coldStart = false;
+      {
+      	hcod.setInitialActiveSet();
+        // coldStart = false;
+      }
 
       // resize output
       m_output.resize(m_n, hLvl[0].m_neq, 2*hLvl[0].m_nin);
 
       /* solve HCOD */
-      // std::cerr<<"active search"<<std::endl;
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
-      std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
+      std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
+      // std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* assign rest of m_output */
       // m_output.lambda = hcod.getLagrangeMultipliers();
