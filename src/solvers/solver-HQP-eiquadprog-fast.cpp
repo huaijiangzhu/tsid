@@ -162,7 +162,7 @@ namespace tsid
           }
         }
 
-        // std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
+        std::cerr << "tsid::J["<<l<<"]:\n"<<J[l]<<std::endl;
         std::cerr << "tsid::b["<<l<<"]:\n"<<b[l]<<std::endl;
 
         if (coldStart) {
@@ -184,7 +184,7 @@ namespace tsid
       /* solve HCOD */
       hcod.activeSearch(m_output.x);
       activeSet = hcod.getOptimalActiveSet();
-      // std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
+      std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
       std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
       /* assign rest of m_output */
