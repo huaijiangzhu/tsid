@@ -121,6 +121,7 @@ namespace tsid
     
     const HQPOutput & SolverHQuadProgFast::solve(const HQPData & problemData)
     {
+      //   std::cout<<"NORMAL SOLVE!!!!!!!!!!!!!!!!"<<std::endl;
       START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
 
       initializeSolver(problemData);
@@ -292,6 +293,7 @@ namespace tsid
 
     const HQPOutput & SolverHQuadProgFast::resolve(const HQPData & problemData)
     {
+      //   std::cout<<"RESOLVE!!!!!!!!!!!!!!!!"<<std::endl;
       // get the changed rhs
       int l=0;
       for (const auto & cl : problemData)
@@ -363,11 +365,53 @@ namespace tsid
 
     void SolverHQuadProgFast::compute_slack(const HQPData & problemData, 
                                             HQPOutput & problemOutput) {
-      problemOutput.m_slack.resize(p);
-      for (int l=0;l<p;l++) {
-        // std::cerr<<"w["<<l<<"]:\n"<<hcod.getLagrangeMultipliers()[l]<<std::endl;
-        problemOutput.m_slack[l] = hcod.getLagrangeMultipliers()[l].col(l).norm();
+      // std::cout<<"compute_slack"<<std::endl;
+      Vector& x = problemOutput.x;
+      const ConstraintLevel cl = problemData[0];
+      problemOutput.m_slack.setZero();
+      problemOutput.m_slack.resize(cl.size());
+      // FIXME: it's a hack for now as there is no correct getter for the lambdas in HCOD yet 
+      // for (int l=0;l<p;l++) {
+      //   std::cerr<<"w["<<l<<"]:\n"<<hcod.getLagrangeMultipliers()[l]<<std::endl;
+      //   problemOutput.m_slack[l] = hcod.getLagrangeMultipliers()[l].col(l).norm();
+      // }
+      
+      int t=0;
+      int l=0;
+      // std::cout<<"neq: "<<hLvl[l].m_neq<<" nin: "<<hLvl[l].m_nin<<std::endl;
+      int i_eq=0, i_in=0;
+      for(ConstraintLevel::const_iterator it=cl.begin(); it!=cl.end(); it++)
+      {
+        const ConstraintBase* constr = it->second;
+        if(constr->isEquality())
+        {
+          Vector lhs = J[l].block(i_eq,0,constr->rows(),m_n) * x;
+          for (int c=0;c<constr->rows();c++)
+          {
+              // std::cout<<"eq b["<<l<<"].size: "<<b[l].size()<<" access: "<<i_eq+c<<": "<<b[l][i_eq+c]<<" "<<lhs[c]<<" dist: "<<b[l][i_eq+c].distance(lhs[c])<<std::endl;
+              problemOutput.m_slack(t) += std::pow(b[l][i_eq+c].distance(lhs[c]),2);
+          }
+          problemOutput.m_slack(t) = sqrt(problemOutput.m_slack(t));
+          // std::cout<<"slack: "<<problemOutput.m_slack(t)<<std::endl; 
+          i_eq += constr->rows();
+        }
+        else if(constr->isInequality() || constr->isBound())
+        {
+            
+          Vector lhs = J[l].block(hLvl[l].m_neq+i_in,0,constr->rows(),m_n) * x;
+          for (int c=0;c<constr->rows();c++)
+          {
+                  
+              // std::cout<<"ineq b["<<l<<"].size: "<<b[l].size()<<" access: "<<hLvl[l].m_neq+i_in+c<<": "<<b[l][hLvl[l].m_neq+i_in+c]<<" "<<lhs[c]<<" dist "<<b[l][hLvl[l].m_neq+i_in+c].distance(lhs[c])<<std::endl;
+              problemOutput.m_slack(t) += std::pow(b[l][hLvl[l].m_neq+i_in+c].distance(lhs[c]),2);
+          }
+          problemOutput.m_slack(t) = sqrt(problemOutput.m_slack(t));
+          // std::cout<<"slack: "<<problemOutput.m_slack(t)<<std::endl; 
+          i_in += constr->rows();
+        }
+        t++;
       }
+      // std::cout<<"compute_slack end"<<std::endl;
     }
 
     const HQPOutput & SolverHQuadProgFast::solve_local(const HQPData & problemData,
