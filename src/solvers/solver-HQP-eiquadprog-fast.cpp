@@ -188,12 +188,18 @@ namespace tsid
         coldStart = false;
       }
 
+      STOP_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_PREPARATION);
+
       // resize output
       m_output.resize(m_n, hLvl[0].m_neq, 2*hLvl[0].m_nin);
 
+
       /* solve HCOD */
+      START_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_SOLUTION);
       hcod.activeSearch(m_output.x);
-      activeSet = hcod.getOptimalActiveSet();
+      STOP_PROFILER_EIQUADPROG_FAST(PROFILE_EIQUADPROG_SOLUTION);
+
+      activeSet = hcod.getOptimalActiveSet(true);
       // std::cerr<<"solution:\n"<<m_output.x.transpose()<<std::endl;
       // std::cerr << "nrofasiterations "<<hcod.getNrASIterations()<<std::endl;
 
@@ -201,25 +207,14 @@ namespace tsid
       // m_output.lambda = hcod.getLagrangeMultipliers();
       // . TODO
       // store active set in output
-      int cr=0, actIneqCtr=0;
-      m_output.activeSet.resize(hLvl[0].m_nin);
-      m_output.activeSetPy.resize(hLvl[0].m_nin);
-      for(ConstraintLevel::const_iterator it=problemData[0].begin(); it!=problemData[0].end(); it++)
+      m_output.activeSet.resize(hLvl[0].m_neq + hLvl[0].m_nin);
+      m_output.activeSetPy.resize(hLvl[0].m_neq + hLvl[0].m_nin);
+      m_output.activeSet.setConstant(soth::Bound::BOUND_TWIN);
+      m_output.activeSetPy.setConstant(soth::Bound::BOUND_TWIN);
+      for(int ac=0;ac<activeSet[0].size();ac++)
       {
-        const ConstraintBase* constr = it->second;
-        for (int cr=0;cr<constr->rows();cr++)
-        {
-            if (activeSet[0][cr].type > 0)
-            {
-                if(constr->isInequality() || constr->isBound())
-                {
-                  m_output.activeSet(actIneqCtr) = activeSet[0][cr].type;
-                  m_output.activeSetPy(actIneqCtr) = activeSet[0][cr].type;
-                  actIneqCtr++;
-                }
-            }
-        }
-        cr += constr->rows();
+          m_output.activeSet(activeSet[0][ac].row) = activeSet[0][ac].type;
+          m_output.activeSetPy(activeSet[0][ac].row) = activeSet[0][ac].type;
       }
 
       Vector x = m_output.x;
